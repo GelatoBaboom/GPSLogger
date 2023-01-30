@@ -7,7 +7,7 @@
 #include <DallasTemperature.h>
 #include <Adafruit_GFX.h>
 #include "FreeSerifBoldItalic18pt7b.h"
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_SH110X.h>
 #include <TinyGPSPlus.h>
 
 #include <SPI.h>
@@ -20,10 +20,20 @@ TinyGPSPlus gps;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define ONE_WIRE_BUS D3
 #define CS_PIN  D8
+
+#define BLACK    0x0000
+#define BLUE     0x001F
+#define RED      0xF800
+#define GREEN    0x07E0
+#define CYAN     0x07FF
+#define MAGENTA  0xF81F
+#define YELLOW   0xFFE0
+#define WHITE    0xFFFF
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
@@ -42,11 +52,11 @@ float getTemperature() {
   float temp;
 
   do {
-    //Serial.println(F("get temp"));
+    Serial.println(F("get temp"));
     DS18B20.requestTemperatures();
     temp = DS18B20.getTempCByIndex(0);
-    //Serial.println(String((temp)));
-    //Serial.println(String((int)trunc(round(temp))));
+    Serial.println(String((temp)));
+    Serial.println(String((int)trunc(round(temp))));
     delay(100);
   } while (temp == 85.0 || temp == (-127.0));
 
@@ -58,21 +68,21 @@ void registerData()
   if (regEnable) {
     File fiReg;
 
-    int currentMonth = gps.date.month();
-    int currentDay = gps.date.day();
+    //int currentMonth = gps.date.month();
+    //int currentDay = gps.date.day();
     int currentYear = gps.date.year();
     if (fileName == "") {
       fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + ".gpx";
     }
     if (currentYear > 2000) {
-      if (!SD.exists("/regs/" + String(currentYear) + "/" + String(currentMonth) + "/" + String(currentDay)))
+      if (!SD.exists("/regs"))
       {
-        SD.mkdir("/regs/" + String(currentYear) + "/" + String(currentMonth) + "/" + String(currentDay));
+        SD.mkdir("/regs");
       }
       String datetime = String(gps.date.year())  + "-" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "-" + ((gps.date.day() < 10 ? "0" : "") + String(gps.date.day())) + "T" + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + "Z" ;
-      if (!SD.exists("/regs/" + String(currentYear) + "/" + String(currentMonth) + "/" + String(currentDay) + "/" + fileName))
+      if (!SD.exists("/regs/" + fileName))
       {
-        fiReg = SD.open("/regs/" + String(currentYear) + "/" + String(currentMonth) + "/" + String(currentDay) + "/" + fileName, FILE_WRITE);
+        fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
         if (fiReg) {
           if (gps.altitude.isValid()) {
             fiReg.println(  "type,latitude,longitude,altitude (m),time,name,desc,speed (km/h)" );
@@ -82,7 +92,7 @@ void registerData()
         }
       } else {
         if (gps.altitude.isValid()) {
-          fiReg = SD.open("/regs/" + String(currentYear) + "/" + String(currentMonth) + "/" + String(currentDay) + "/" + fileName, FILE_WRITE);
+          fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
           if (fiReg) {
             fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(gps.altitude.meters()) + "," + datetime + ",," + String(currentTemp) + "," + String(gps.speed.kmph()));
             fiReg.close();
@@ -93,30 +103,26 @@ void registerData()
   }
 }
 void setup(void) {
+
   Serial.begin(9600);
-  Serial.println(F("init"));
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  Serial.println(F("init ok"));
+  //if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(0x3C, true)) {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;); // Don't proceed, loop forever
   }
-  Serial.println(F("init ok"));
-
   // set the data rate for the SoftwareSerial port
   Serial.print("Starting...");
 
   pinMode(buttonPin, INPUT);
 
-  display.display();
-  display.clearDisplay();
-  display.print("test");
-  display.display();
-
   if (!SD.begin(CS_PIN)) {
 
     Serial.println("initialization failed!");
+    display.clearDisplay();
     display.setCursor(1, 1);
     display.setTextSize(4);
-    display.setTextColor(WHITE);
+    display.setTextColor(SH110X_WHITE);
     display.print("Error SD");
     display.display();
     while (1) {
@@ -137,7 +143,7 @@ void initializingGPS() {
   display.drawLine(18, 42, 18, 42, 1);
   display.setCursor(45, 30);
   display.setFont(&FreeSerifBoldItalic18pt7b);
-  display.setTextColor(WHITE);
+  display.setTextColor(SH110X_WHITE);
   display.print("GPS");
   display.setCursor(30, 55);
   display.setFont(NULL);
@@ -159,9 +165,10 @@ void gpsdata()
     initializingGPS();
   }
   while (!done) {
+  //while (true) {
     currentTemp = (int)trunc(round(getTemperature()));
     smartdelay(500);
-    
+
     Serial.println("DONE-----------------------------------");
     Serial.println("gps data");
     Serial.println((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second())  );
@@ -174,7 +181,7 @@ void gpsdata()
     Serial.println("time to get data: "  + String((millis() - timerData) / 1000));
     timerData = millis();
     tries++;
-    
+
     if (gps.altitude.isValid() || tries > 100) {
 
 
@@ -185,7 +192,7 @@ void gpsdata()
       display.clearDisplay();
       display.setTextSize(1);
 
-      display.setTextColor(WHITE);
+      display.setTextColor(SH110X_WHITE);
       display.setCursor(1, 1);
       display.print((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":" + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second())  );
 
