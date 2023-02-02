@@ -42,7 +42,7 @@ bool regEnable = false;
 bool endRequest = false;
 bool startRequest = false;
 bool displayOn = true;
-unsigned int displayTimeOut = 60;
+unsigned int displayTimeOut = 120;
 
 char temperatureString[6];
 const int led = 13;
@@ -269,6 +269,8 @@ void setup(void) {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;); // Don't proceed, loop forever
   }
+  display.clearDisplay();
+  display.display();
   // set the data rate for the SoftwareSerial port
   Serial.print("Starting...");
 
@@ -321,10 +323,10 @@ void loop(void) {
   buttonState = digitalRead(buttonPin);
   if (buttonState == LOW )
   {
+    timerOled = millis();
     if (!displayOn) {
       Serial.println("Display ON");
       displayOn = true;
-      timerOled = millis();
     } else {
       endRequest = regEnable ? true : false;
       startRequest = regEnable ? false : true;
