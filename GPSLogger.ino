@@ -39,24 +39,32 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
 File fi;
 bool regEnable = false;
+bool endRequest = false;
+bool startRequest = false;
+bool displayOn = true;
+unsigned int displayTimeOut = 60;
+
 char temperatureString[6];
 const int led = 13;
 String fileName = "";
 int timeZone = -3;
 bool initilalized = false;
 int buttonPin = D4;
+
 uint32_t timerData;
+uint32_t timerReg;
+uint32_t timerOled;
 
 int currentTemp = 0;
 float getTemperature() {
   float temp;
 
   do {
-    Serial.println(F("get temp"));
+    //Serial.println(F("get temp"));
     DS18B20.requestTemperatures();
     temp = DS18B20.getTempCByIndex(0);
-    Serial.println(String((temp)));
-    Serial.println(String((int)trunc(round(temp))));
+    //Serial.println(String((temp)));
+    //Serial.println(String((int)trunc(round(temp))));
     delay(100);
   } while (temp == 85.0 || temp == (-127.0));
 
@@ -102,34 +110,7 @@ void registerData()
     }
   }
 }
-void setup(void) {
 
-  Serial.begin(9600);
-  Serial.println(F("init ok"));
-  //if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-  if (!display.begin(0x3C, true)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for (;;); // Don't proceed, loop forever
-  }
-  // set the data rate for the SoftwareSerial port
-  Serial.print("Starting...");
-
-  pinMode(buttonPin, INPUT);
-
-  if (!SD.begin(CS_PIN)) {
-
-    Serial.println("initialization failed!");
-    display.clearDisplay();
-    display.setCursor(1, 1);
-    display.setTextSize(4);
-    display.setTextColor(SH110X_WHITE);
-    display.print("Error SD");
-    display.display();
-    while (1) {
-      delay(80);
-    }
-  }
-}
 void initializingGPS() {
   display.clearDisplay();
   display.drawCircle(20, 30, 15, 1);
@@ -158,17 +139,14 @@ int localizeHourTime(int hours) {
 }
 void gpsdata()
 {
-  bool done = false;
-  Serial.println("gps try..");
-  int tries = 0;
+  Serial.println("gps print");
+
   if (!initilalized) {
     initializingGPS();
   }
-  while (!done) {
-  //while (true) {
-    currentTemp = (int)trunc(round(getTemperature()));
-    smartdelay(500);
 
+  currentTemp = (int)trunc(round(getTemperature()));
+  if (false) {
     Serial.println("DONE-----------------------------------");
     Serial.println("gps data");
     Serial.println((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second())  );
@@ -179,16 +157,12 @@ void gpsdata()
     Serial.println("pres: "  + String(gps.hdop.value()) + "hdop");
     Serial.println("temp: "  + String(currentTemp) );
     Serial.println("time to get data: "  + String((millis() - timerData) / 1000));
-    timerData = millis();
-    tries++;
+  }
 
-    if (gps.altitude.isValid() || tries > 100) {
-
-
-      done = true;
+  if (gps.altitude.isValid() )
+  {
+    if (displayOn) {
       initilalized = true;
-
-
       display.clearDisplay();
       display.setTextSize(1);
 
@@ -211,13 +185,14 @@ void gpsdata()
       display.setCursor(55, 30);
       display.print("v:"  + String(gps.speed.kmph()) + "Kmh");
       display.display();
-
-      if (regEnable) {
-
+      if (startRequest) {
+        regEnable = true;
+        startRequest = false;
         display.setCursor(1, 40);
         int buttonState = 0;
         buttonState = digitalRead(buttonPin);
-        if (fileName != "" && buttonState == LOW) {
+        if ( fileName != "" && buttonState == LOW) {
+          Serial.println("endRequest: "  + String(endRequest) );
           display.println("Keep pressing to     create new file");
           display.display();
           smartdelay(1000);
@@ -234,6 +209,19 @@ void gpsdata()
 
           display.fillRect(0, 40, 128, 20, 0);
         }
+      } else {
+        if (endRequest) {
+          regEnable = false;
+          endRequest = false;
+          display.fillRect(0, 40, 128, 20, 0);
+          display.setCursor(1, 40);
+          display.print("End recording");
+          display.display();
+          endRequest = false;
+          smartdelay(1000);
+        }
+      }
+      if (regEnable) {
         display.setCursor(1, 40);
         display.print("Recording");
         bool flash = true;
@@ -243,49 +231,105 @@ void gpsdata()
           display.display();
           smartdelay(500);
         }
+
+      }
+    } else {
+      Serial.println("Limpia display");
+      display.clearDisplay();
+      display.display();
+    }
+    if (regEnable) {
+      if (((millis() - timerReg) ) > 4000) {
+        timerReg = millis();
         registerData();
-      } else {
-        smartdelay(2000);
       }
-      //display.print("t.");
-      //display.print(String((int)trunc(round(getTemperature()))));
-
-      while (Serial.available() > 0)
-      {
-        Serial.read();
-      }
-
     }
 
   }
-
-
 }
+
 
 static void smartdelay(unsigned long ms)
 {
   unsigned long start = millis();
   do
   {
+    //Serial.println(String(Serial.available()));
     while (Serial.available())
       gps.encode(Serial.read());
   } while (millis() - start < ms);
 }
 
+void setup(void) {
+
+  Serial.begin(9600);
+  Serial.println(F("init ok"));
+  //if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(0x3C, true)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;); // Don't proceed, loop forever
+  }
+  // set the data rate for the SoftwareSerial port
+  Serial.print("Starting...");
+
+  pinMode(buttonPin, INPUT);
+
+  if (!SD.begin(CS_PIN)) {
+
+    Serial.println("initialization failed!");
+    display.clearDisplay();
+    display.setCursor(1, 1);
+    display.setTextSize(4);
+    display.setTextColor(SH110X_WHITE);
+    display.print("Error SD");
+    display.display();
+    while (1) {
+      delay(80);
+    }
+  }
+  timerOled = millis();
+  timerData = millis();
+}
 void loop(void) {
-  //      Serial.println("GPS stream dump:");
-  //      while (true) // infinite loop
-  //        if (Serial.available() > 0) // any data coming in?
-  //          Serial.write(Serial.read());
 
+
+  //  Serial.print("Read chars: ");
+  //  Serial.println(String(Serial.available()));
+  //  if (Serial.available() > 0 ) {
+  //    int tries = 0;
+  //    Serial.println("Read serial");
+  //    timerData = millis();
+  //    bool done = false;
+  //    while (!done&&tries<100) {
+  //      tries++;
+  //      gps.encode(Serial.read());
+  //      if (gps.altitude.isValid()) {
+  //        done = true;
+  //        Serial.println(String(millis() - timerData ));
+  //        Serial.println("Done!");
+  //      }
+  //    }
+  //  }
+  smartdelay(1000);
   // check if the pushbutton is pressed.
-
+  if (millis() - timerOled > displayTimeOut * 1000) {
+    //apagar display
+    Serial.println("Display OFF");
+    displayOn = false;
+  }
   int buttonState = 0;
   buttonState = digitalRead(buttonPin);
-  if (buttonState == LOW ) {
-    regEnable = !regEnable;
-    Serial.println("reg: "  + String(regEnable) );
+  if (buttonState == LOW )
+  {
+    if (!displayOn) {
+      Serial.println("Display ON");
+      displayOn = true;
+      timerOled = millis();
+    } else {
+      endRequest = regEnable ? true : false;
+      startRequest = regEnable ? false : true;
+    }
   }
   gpsdata();
-  smartdelay(1000);
+
 }
