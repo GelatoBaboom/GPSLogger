@@ -43,6 +43,7 @@ bool endRequest = false;
 bool startRequest = false;
 bool displayOn = true;
 unsigned int displayTimeOut = 120;
+int fileNum = 0;
 
 char temperatureString[6];
 const int led = 13;
@@ -70,7 +71,21 @@ float getTemperature() {
 
   return temp;
 }
-
+void getLastFile() {
+  File dir = SD.open("/regs" );
+  while (true) {
+    File entry =  dir.openNextFile();
+    if (!entry) {
+      break;
+    }
+    String fname = entry.name();
+    int num = parseInt(fname.split("-")[1]);
+    if (fileNum < num) {
+      fileNum = num;
+      fileName = fname;
+    }
+  }
+}
 void registerData()
 {
   if (regEnable) {
@@ -80,7 +95,7 @@ void registerData()
     //int currentDay = gps.date.day();
     int currentYear = gps.date.year();
     if (fileName == "") {
-      fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + ".gpx";
+      fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + String(fileNum + 1) + ".gpx";
     }
     if (currentYear > 2000) {
       if (!SD.exists("/regs"))
@@ -239,10 +254,10 @@ void gpsdata()
       display.display();
     }
     if (regEnable) {
-      if (((millis() - timerReg) ) > 4000) {
-        timerReg = millis();
-        registerData();
-      }
+      //if (((millis() - timerReg) ) > 4000) {
+      //timerReg = millis();
+      registerData();
+      //}
     }
 
   }
