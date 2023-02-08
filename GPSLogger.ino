@@ -78,11 +78,16 @@ void getLastFile() {
     if (!entry) {
       break;
     }
-    String fname = entry.name();
-    int num = parseInt(fname.split("-")[1]);
+
+    char fname[String(entry.name()).length()] ;
+    Serial.println("filename: "  + String(fname) );
+    String(entry.name()).toCharArray(fname, (String(fname).length() + 1));
+    int num = String(strtok(fname, "-")[1]).toInt();
+    Serial.println("num: "  + String(num) );
     if (fileNum < num) {
       fileNum = num;
-      fileName = fname;
+      fileName = String(fname);
+      Serial.println("last file: "  + String(fileName) );
     }
   }
 }
@@ -304,6 +309,7 @@ void setup(void) {
       delay(80);
     }
   }
+  getLastFile();
   timerOled = millis();
   timerData = millis();
 }
