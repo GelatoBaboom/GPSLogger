@@ -44,6 +44,7 @@ bool startRequest = false;
 bool displayOn = true;
 unsigned int displayTimeOut = 120;
 int fileNum = 0;
+bool sdOn = false;
 
 char temperatureString[6];
 const int led = 13;
@@ -78,16 +79,18 @@ void getLastFile() {
     if (!entry) {
       break;
     }
-
-    char fname[String(entry.name()).length()] ;
-    Serial.println("filename: "  + String(fname) );
-    String(entry.name()).toCharArray(fname, (String(fname).length() + 1));
-    int num = String(strtok(fname, "-")[1]).toInt();
-    Serial.println("num: "  + String(num) );
+    String ename = String(entry.name());
+    char fname[ename.length() + 1] ;
+    ename.toCharArray(fname, (ename.length() + 1));
+    int num = 0;
+    if (ename.length() > 18) {
+      num = (String(strtok(fname, "-")[13]) +  String(strtok(fname, "-")[14])).toInt();
+    } else {
+      num = String(strtok(fname, "-")[13] ).toInt();
+    }
     if (fileNum < num) {
       fileNum = num;
-      fileName = String(fname);
-      Serial.println("last file: "  + String(fileName) );
+      fileName = ename;
     }
   }
 }
@@ -100,7 +103,7 @@ void registerData()
     //int currentDay = gps.date.day();
     int currentYear = gps.date.year();
     if (fileName == "") {
-      fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + String(fileNum + 1) + ".gpx";
+      fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + "-" + String(fileNum + 1) + ".gpx";
     }
     if (currentYear > 2000) {
       if (!SD.exists("/regs"))
@@ -251,7 +254,12 @@ void gpsdata()
           display.display();
           smartdelay(500);
         }
-
+      } else {
+        if (!sdOn) {
+          display.setCursor(1, 40);
+          display.print("No SD");
+          display.display();
+        }
       }
     } else {
       Serial.println("Limpia display");
@@ -297,21 +305,30 @@ void setup(void) {
   pinMode(buttonPin, INPUT);
 
   if (!SD.begin(CS_PIN)) {
-
     Serial.println("initialization failed!");
     display.clearDisplay();
-    display.setCursor(1, 1);
-    display.setTextSize(4);
     display.setTextColor(SH110X_WHITE);
-    display.print("Error SD");
+    display.setTextSize(2);
+    display.setFont(NULL);
+    display.setCursor(30, 15);
+    display.println("No SD");
+    display.setTextSize(1);
+    display.setCursor(10, 35);
+    display.println("tap to continue..");
     display.display();
-    while (1) {
+    sdOn = false;
+    while (digitalRead(buttonPin) == HIGH) {
       delay(80);
     }
+
+  } else {
+    sdOn = true;
   }
   getLastFile();
   timerOled = millis();
   timerData = millis();
+  initializingGPS();
+  delay(1000);
 }
 void loop(void) {
 
@@ -349,8 +366,10 @@ void loop(void) {
       Serial.println("Display ON");
       displayOn = true;
     } else {
-      endRequest = regEnable ? true : false;
-      startRequest = regEnable ? false : true;
+      if (sdOn) {
+        endRequest = regEnable ? true : false;
+        startRequest = regEnable ? false : true;
+      }
     }
   }
   gpsdata();
