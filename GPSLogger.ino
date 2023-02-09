@@ -399,6 +399,7 @@ void setup(void) {
 
   } else {
     sdOn = true;
+    initializingGPS();
     //If there is SD memory on, get configs
     String val = "";
     val = getConfigs("accuracy");

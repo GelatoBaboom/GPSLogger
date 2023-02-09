@@ -1,0 +1,94 @@
+[
+  {
+    "id": 1,
+    "op": "setTextColor",
+    "invert": false
+  },
+  {
+    "id": 3,
+    "op": "setFont",
+    "font": "Default"
+  },
+  {
+    "id": 2,
+    "op": "setTextSize",
+    "size": "1"
+  },
+  {
+    "id": 6,
+    "op": "setCursor",
+    "x": "1",
+    "y": "1"
+  },
+  {
+    "id": 7,
+    "op": "println",
+    "text": "09/01/2023 - 12:05:11"
+  },
+  {
+    "id": 8,
+    "op": "setCursor",
+    "x": "1",
+    "y": "10"
+  },
+  {
+    "id": 9,
+    "op": "println",
+    "text": "trip: 125.12mts"
+  },
+  {
+    "id": 10,
+    "op": "setCursor",
+    "x": "1",
+    "y": "20"
+  },
+  {
+    "id": 11,
+    "op": "println",
+    "text": "alt: 693.62mts"
+  },
+  {
+    "id": 12,
+    "op": "setCursor",
+    "x": "89",
+    "y": "20"
+  },
+  {
+    "id": 13,
+    "op": "println",
+    "text": "t: 24c"
+  },
+  {
+    "id": 16,
+    "op": "setCursor",
+    "x": "1",
+    "y": "30"
+  },
+  {
+    "id": 15,
+    "op": "println",
+    "text": "sat's:12"
+  },
+  {
+    "id": 4,
+    "op": "setCursor",
+    "x": "55",
+    "y": "30"
+  },
+  {
+    "id": 17,
+    "op": "println",
+    "text": "v: 125.28kmh"
+  },
+  {
+    "id": 19,
+    "op": "setCursor",
+    "x": "1",
+    "y": "48"
+  },
+  {
+    "id": 20,
+    "op": "println",
+    "text": "Keep pressing to      create new file"
+  }
+]

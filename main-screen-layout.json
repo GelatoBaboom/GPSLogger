@@ -1,0 +1,113 @@
+[
+  {
+    "id": 1,
+    "op": "setTextColor",
+    "invert": false
+  },
+  {
+    "id": 3,
+    "op": "setFont",
+    "font": "Default"
+  },
+  {
+    "id": 2,
+    "op": "setTextSize",
+    "size": "1"
+  },
+  {
+    "id": 6,
+    "op": "setCursor",
+    "x": "1",
+    "y": "1"
+  },
+  {
+    "id": 7,
+    "op": "println",
+    "text": "09/01/2023 - 12:05:11"
+  },
+  {
+    "id": 10,
+    "op": "setCursor",
+    "x": "1",
+    "y": "10"
+  },
+  {
+    "id": 11,
+    "op": "println",
+    "text": "alt: 693.62mts"
+  },
+  {
+    "id": 12,
+    "op": "setCursor",
+    "x": "89",
+    "y": "10"
+  },
+  {
+    "id": 13,
+    "op": "println",
+    "text": "t: 24c"
+  },
+  {
+    "id": 16,
+    "op": "setCursor",
+    "x": "1",
+    "y": "20"
+  },
+  {
+    "id": 15,
+    "op": "println",
+    "text": "sat's:12"
+  },
+  {
+    "id": 4,
+    "op": "setCursor",
+    "x": "55",
+    "y": "20"
+  },
+  {
+    "id": 17,
+    "op": "println",
+    "text": "v: 125.28kmh"
+  },
+  {
+    "id": 21,
+    "op": "setCursor",
+    "x": "1",
+    "y": "30"
+  },
+  {
+    "id": 22,
+    "op": "println",
+    "text": "trip: 125.12mts"
+  },
+  {
+    "id": 8,
+    "op": "setCursor",
+    "x": "1",
+    "y": "40"
+  },
+  {
+    "id": 9,
+    "op": "println",
+    "text": "pos: 125m neg: -589m"
+  },
+  {
+    "id": 14,
+    "op": "setCursor",
+    "x": "1",
+    "y": "50"
+  },
+  {
+    "id": 5,
+    "op": "println",
+    "text": "Recording"
+  },
+  {
+    "op": "fillCircle",
+    "id": 18,
+    "x": "62",
+    "y": "54",
+    "r": "4",
+    "color": "1"
+  }
+]
