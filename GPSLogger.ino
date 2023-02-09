@@ -9,12 +9,15 @@
 #include "FreeSerifBoldItalic18pt7b.h"
 #include <Adafruit_SH110X.h>
 #include <TinyGPSPlus.h>
+#include <math.h>
+
 
 #include <SPI.h>
 #include <SD.h>
 
 TinyGPSPlus gps;
-
+int ACCURACY = 15;
+int ALTACCURACY = 20;
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
@@ -45,6 +48,13 @@ bool displayOn = true;
 unsigned int displayTimeOut = 120;
 int fileNum = 0;
 bool sdOn = false;
+//course
+double lt = 0;
+double lg = 0;
+double dist = 0;
+double altPos = 0;
+double altNeg = 0;
+double altStart = 0;
 
 char temperatureString[6];
 const int led = 13;
@@ -160,6 +170,43 @@ int localizeHourTime(int hours) {
   hours = hours > 23 ? hours - 24 : hours;
   return hours;
 }
+double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+#define R 6371000.0
+#define PI 3.1415926535897932384626433832795
+  double phi1 = lat1 * PI / 180.0;
+  double phi2 = lat2 * PI / 180.0;
+  double dphi = (lat2 - lat1) * PI / 180.0;
+  double dlambda = (lon2 - lon1) * PI / 180.0;
+  double a1 = sin(dphi / 2.0) * sin(dphi / 2.0);
+  double a2 = cos(phi1) * cos(phi2);
+  double a3 = sin(dlambda / 2.0) * sin(dlambda / 2.0);
+  double a = a1 + (a2 * a3);
+  double c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
+  double d = R * c;
+  return d;
+}
+String getConfigs(String key)
+{
+  String k = "";
+  String v = "";
+  fi = SD.open("/configs/configs.ini");
+  if (fi) {
+    while (fi.available()) {
+      k = fi.readStringUntil(',');
+      v = fi.readStringUntil('\r');
+      fi.readStringUntil('\n');
+      if (k == key)
+      {
+        fi.close();
+        //if (v == "")return NULL;
+        return v;
+      }
+    }
+  }
+  fi.close();
+  return "";
+
+}
 void gpsdata()
 {
   Serial.println("gps print");
@@ -182,6 +229,7 @@ void gpsdata()
     Serial.println("time to get data: "  + String((millis() - timerData) / 1000));
   }
 
+
   if (gps.altitude.isValid() )
   {
     if (displayOn) {
@@ -194,50 +242,66 @@ void gpsdata()
       display.print((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":" + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second())  );
 
       display.setCursor(1, 10);
-      display.print(String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6));
-
-      display.setCursor(1, 20);
       display.print("alt: "  + String(gps.altitude.meters()) + "mts");
 
-      display.setCursor(89, 20);
+      display.setCursor(89, 10);
       display.print("t:" + String(currentTemp) + "c");
 
-      display.setCursor(1, 30);
+      display.setCursor(1, 20);
       display.print("sat's:"  + String(gps.satellites.value()));
 
-      display.setCursor(55, 30);
+      display.setCursor(55, 20);
       display.print("v:"  + String(gps.speed.kmph()) + "Kmh");
+
+      display.setCursor(1, 30);
+      if (!regEnable) {
+        display.print(String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6));
+      }
+      else {
+        display.print("trip: " + ((dist < 1000) ? String(dist) + "mts" : String(dist / 1000) + "kms") );
+        display.setCursor(1, 40);
+        display.print("pos: " + String((int)round(altPos)) + "m neg: " +   String((int)round(altNeg)) + "m" );
+      }
       display.display();
+
       if (startRequest) {
         regEnable = true;
         startRequest = false;
-        display.setCursor(1, 40);
+        //reset trip
+        dist = 0;
+        lg = 0;
+        lt = 0;
+        altPos = 0;
+        altNeg = 0;
+        altStart = gps.altitude.meters();
+        //--------------
+        display.setCursor(1, 48);
         int buttonState = 0;
         buttonState = digitalRead(buttonPin);
         if ( fileName != "" && buttonState == LOW) {
           Serial.println("endRequest: "  + String(endRequest) );
-          display.println("Keep pressing to     create new file");
+          display.println("Keep pressing to      create new file");
           display.display();
           smartdelay(1000);
           buttonState = digitalRead(buttonPin);
           if (buttonState == LOW ) {
             fileName = "";
-            display.fillRect(0, 40, 128, 20, 0);
+            display.fillRect(0, 48, 128, 20, 0);
             display.display();
-            display.setCursor(1, 40);
+            display.setCursor(1, 50);
             display.print("file: route_" + String(gps.time.hour() + timeZone) +  String(gps.time.minute())  + String(gps.time.second()) + ".gpx" ) ;
             display.display();
             smartdelay(1000);
           }
 
-          display.fillRect(0, 40, 128, 20, 0);
+          display.fillRect(0, 48, 128, 20, 0);
         }
       } else {
         if (endRequest) {
           regEnable = false;
           endRequest = false;
-          display.fillRect(0, 40, 128, 20, 0);
-          display.setCursor(1, 40);
+          display.fillRect(0, 48, 128, 20, 0);
+          display.setCursor(1, 50);
           display.print("End recording");
           display.display();
           endRequest = false;
@@ -245,34 +309,46 @@ void gpsdata()
         }
       }
       if (regEnable) {
-        display.setCursor(1, 40);
+        display.setCursor(1, 50);
         display.print("Recording");
         bool flash = true;
         for (int i = 0; i < 4; i++) {
-          display.fillCircle(62, 44, 4, flash ? 1 : 0);
+          display.fillCircle(62, 54, 4, flash ? 1 : 0);
           flash = !flash;
           display.display();
           smartdelay(500);
         }
       } else {
         if (!sdOn) {
-          display.setCursor(1, 40);
+          display.setCursor(1, 50);
           display.print("No SD");
           display.display();
         }
       }
     } else {
-      Serial.println("Limpia display");
       display.clearDisplay();
       display.display();
     }
     if (regEnable) {
-      //if (((millis() - timerReg) ) > 4000) {
-      //timerReg = millis();
-      registerData();
-      //}
-    }
 
+      altPos = (gps.altitude.meters() - (altStart  + altPos) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
+      altNeg = (gps.altitude.meters() - (altStart + altNeg)  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
+
+      double pdist = 0;
+      if (lg != 0) {
+        pdist = calculateDistance(lt, lg , gps.location.lat(), gps.location.lng());
+        if (pdist > ACCURACY) {
+          dist += pdist;
+          lg = gps.location.lng();
+          lt = gps.location.lat();
+          registerData();
+        }
+        Serial.println(String(dist));
+      } else {
+        lg = gps.location.lng();
+        lt = gps.location.lat();
+      }
+    }
   }
 }
 
@@ -300,7 +376,7 @@ void setup(void) {
   display.clearDisplay();
   display.display();
   // set the data rate for the SoftwareSerial port
-  Serial.print("Starting...");
+  Serial.println("Starting...");
 
   pinMode(buttonPin, INPUT);
 
@@ -323,6 +399,17 @@ void setup(void) {
 
   } else {
     sdOn = true;
+    //If there is SD memory on, get configs
+    String val = "";
+    val = getConfigs("accuracy");
+    Serial.println("accuracy: " + val);
+    ACCURACY  = val != "" ? val.toInt() : ACCURACY;
+    val = getConfigs("displayTimeOut");
+    Serial.println("displayTimeOut: " + val);
+    displayTimeOut = val != "" ? val.toInt() : displayTimeOut;
+    val = getConfigs("altAccuracy");
+    Serial.println("ALTACCURACY: " + val);
+    ALTACCURACY = val != "" ? val.toInt() : ALTACCURACY;
   }
   getLastFile();
   timerOled = millis();
@@ -331,25 +418,7 @@ void setup(void) {
   delay(1000);
 }
 void loop(void) {
-
-
-  //  Serial.print("Read chars: ");
-  //  Serial.println(String(Serial.available()));
-  //  if (Serial.available() > 0 ) {
-  //    int tries = 0;
-  //    Serial.println("Read serial");
-  //    timerData = millis();
-  //    bool done = false;
-  //    while (!done&&tries<100) {
-  //      tries++;
-  //      gps.encode(Serial.read());
-  //      if (gps.altitude.isValid()) {
-  //        done = true;
-  //        Serial.println(String(millis() - timerData ));
-  //        Serial.println("Done!");
-  //      }
-  //    }
-  //  }
+  //reads for 1 seg gps data
   smartdelay(1000);
   // check if the pushbutton is pressed.
   if (millis() - timerOled > displayTimeOut * 1000) {
