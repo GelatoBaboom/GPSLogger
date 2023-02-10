@@ -55,6 +55,7 @@ double dist = 0;
 double altPos = 0;
 double altNeg = 0;
 double altStart = 0;
+int bat_percentage = 0;
 
 char temperatureString[6];
 const int led = 13;
@@ -66,7 +67,7 @@ int buttonPin = D4;
 uint32_t timerData;
 uint32_t timerReg;
 uint32_t timerOled;
-
+uint32_t timerBat = 99999999;
 int currentTemp = 0;
 float getTemperature() {
   float temp;
@@ -104,6 +105,7 @@ void getLastFile() {
     }
   }
 }
+
 void registerData()
 {
   if (regEnable) {
@@ -185,6 +187,39 @@ double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
   double d = R * c;
   return d;
 }
+bool setConfigs(String key, String val)
+{
+
+  String filecont = "";
+  Serial.println("open file");
+  fi = SD.open("/configs/configs.ini");
+  String v = "";
+  if (fi) {
+    while (fi.available()) {
+      v = fi.readStringUntil(',');
+      filecont += v ;
+      filecont += ",";
+      if (v == key)
+      {
+        Serial.println("key found");
+        Serial.println("value: " + val);
+        filecont += val;
+        filecont += "\r\n";
+        fi.readStringUntil('\r');
+        fi.readStringUntil('\n');
+        Serial.println("val put");
+      } else {
+        v = fi.readStringUntil('\r');
+        fi.readStringUntil('\n');
+        filecont += v;
+        filecont += "\r\n";
+      }
+    }
+    fi.close();
+    Serial.println("file closed");
+  }
+  return true;
+}
 String getConfigs(String key)
 {
   String k = "";
@@ -233,13 +268,24 @@ void gpsdata()
   if (gps.altitude.isValid() )
   {
     if (displayOn) {
+
       initilalized = true;
       display.clearDisplay();
+      //Battery display and check
+      if (millis() - timerBat > (60 * 1000)) {
+        batCheck();
+        timerBat = millis();
+      }
+      display.drawRect(107, 0, 20, 8, 1);
+      display.fillRect(127, 3, 2, 2, 1);
+      display.fillRect(109, 2, map(bat_percentage, 1, 100, 0, 16), 4, 1);
+
+
       display.setTextSize(1);
 
       display.setTextColor(SH110X_WHITE);
       display.setCursor(1, 1);
-      display.print((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":" + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second())  );
+      display.print((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year() - 2000) + "-" + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":" + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second())  );
 
       display.setCursor(1, 10);
       display.print("alt: "  + String(gps.altitude.meters()) + "mts");
@@ -351,7 +397,25 @@ void gpsdata()
     }
   }
 }
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+void batCheck()
+{
+  float voltage;
+  int analogInPin  = A0;    // Analog input pin
+  int sensorValue;
+  float calibration = 0.40; // Check Battery voltage using multimeter & add/subtract the value
+  sensorValue = analogRead(analogInPin);
+  voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); //multiply by two as voltage divider network is 100K & 100K Resistor
+  bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
+  //  Serial.println("sensor: " + String(sensorValue));
+  //  Serial.println("voltage: " + String(voltage));
+  //  Serial.println("bat per: " + String(bat_percentage));
 
+}
 
 static void smartdelay(unsigned long ms)
 {
@@ -417,6 +481,7 @@ void setup(void) {
   timerData = millis();
   initializingGPS();
   delay(1000);
+  batCheck();
 }
 void loop(void) {
   //reads for 1 seg gps data
