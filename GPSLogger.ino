@@ -406,11 +406,31 @@ void batCheck()
   float voltage;
   int analogInPin  = A0;    // Analog input pin
   int sensorValue;
-  float calibration = 0.40; // Check Battery voltage using multimeter & add/subtract the value
+  float calibration = -0.20; // Check Battery voltage using multimeter & add/subtract the value
   sensorValue = analogRead(analogInPin);
-  voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); //multiply by two as voltage divider network is 100K & 100K Resistor
-  bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  // (31k/(100k+31k)) * 4.2V = sensor V.
+  //voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); //multiply by two as voltage divider network is 100K & 100K Resistor
+  //bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  voltage = (sensorValue / 0.230769230769) / 1000; //multiply by two as voltage divider network is 100K & 100K Resistor
+  voltage = voltage + calibration;
+  bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
   bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
+
+  display.clearDisplay();
+  display.setTextColor(SH110X_WHITE);
+  display.setTextSize(1);
+  display.setCursor(1, 1);
+  display.print("sensorValue: "  + String(sensorValue));
+  display.setCursor(1, 10);
+  display.print("voltage real: "  + String(voltage + calibration));
+  display.setCursor(1, 30);
+  display.print("voltage: "  + String(voltage));
+  display.setCursor(1, 40);
+  display.print("bat_percentage: "  + String(bat_percentage));
+  display.display();
+  while (digitalRead(buttonPin) == HIGH) {
+    delay(80);
+  }
   //  Serial.println("sensor: " + String(sensorValue));
   //  Serial.println("voltage: " + String(voltage));
   //  Serial.println("bat per: " + String(bat_percentage));
@@ -487,7 +507,7 @@ void loop(void) {
   //reads for 1 seg gps data
   smartdelay(1000);
   // check if the pushbutton is pressed.
-  if (millis() - timerOled > displayTimeOut * 1000) {
+  if ((millis() - timerOled > displayTimeOut * 1000) && initilalized) {
     //apagar display
     Serial.println("Display OFF");
     displayOn = false;
