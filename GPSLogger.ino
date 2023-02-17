@@ -422,7 +422,7 @@ void batCheck()
   display.setCursor(1, 1);
   display.print("sensorValue: "  + String(sensorValue));
   display.setCursor(1, 10);
-  display.print("voltage real: "  + String(voltage + calibration));
+  display.print("voltage real: "  + String(voltage - calibration));
   display.setCursor(1, 30);
   display.print("voltage: "  + String(voltage));
   display.setCursor(1, 40);
@@ -431,9 +431,7 @@ void batCheck()
   while (digitalRead(buttonPin) == HIGH) {
     delay(80);
   }
-  //  Serial.println("sensor: " + String(sensorValue));
-  //  Serial.println("voltage: " + String(voltage));
-  //  Serial.println("bat per: " + String(bat_percentage));
+  
 
 }
 
