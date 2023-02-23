@@ -105,7 +105,10 @@ void getLastFile() {
     }
   }
 }
-
+String numToTwoDigits(int num )
+{
+  return ((num < 10) ? "0" : "") +  String(num);
+}
 void registerData()
 {
   if (regEnable) {
@@ -115,14 +118,15 @@ void registerData()
     //int currentDay = gps.date.day();
     int currentYear = gps.date.year();
     if (fileName == "") {
-      fileName = (localizeHourTime(gps.time.hour()) < 10 ? "route_0" : "route_") + String(localizeHourTime(gps.time.hour())) + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute())  + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + "-" + String(fileNum + 1) + ".gpx";
+      fileNum = fileNum + 1;
+      fileName =  "route_" + numToTwoDigits(localizeHourTime(gps.time.hour())) + numToTwoDigits(gps.time.minute())  + numToTwoDigits(gps.time.second()) + "-" + String(fileNum) + ".gpx";
     }
     if (currentYear > 2000) {
       if (!SD.exists("/regs"))
       {
         SD.mkdir("/regs");
       }
-      String datetime = String(gps.date.year())  + "-" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "-" + ((gps.date.day() < 10 ? "0" : "") + String(gps.date.day())) + "T" + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + "Z" ;
+      String datetime = String(gps.date.year())  + "-" +  numToTwoDigits(gps.date.month()) + "-" + numToTwoDigits(gps.date.day()) + "T" + numToTwoDigits(localizeHourTime(gps.time.hour())) + ":" + numToTwoDigits(gps.time.minute()) + ":" + numToTwoDigits(gps.time.second()) + "Z" ;
       if (!SD.exists("/regs/" + fileName))
       {
         fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
@@ -254,7 +258,7 @@ void gpsdata()
   if (false) {
     Serial.println("DONE-----------------------------------");
     Serial.println("gps data");
-    Serial.println((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year()) + " - " + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second())  );
+    Serial.println( numToTwoDigits(gps.date.day()) + "/" + numToTwoDigits(gps.date.month()) + "/" + String(gps.date.year()) + " - " + numToTwoDigits(localizeHourTime(gps.time.hour())) + ":" + numToTwoDigits(gps.time.minute()) + ":" + numToTwoDigits(gps.time.second())  );
     Serial.println("lat: " + String(gps.location.lat(), 6) + " long: " + String(gps.location.lng(), 6) );
     Serial.println("vel: "  + String(gps.speed.kmph()) + "Km/h");
     Serial.println("alt: "  + String(gps.altitude.meters()) + "mts");
@@ -285,7 +289,7 @@ void gpsdata()
 
       display.setTextColor(SH110X_WHITE);
       display.setCursor(1, 1);
-      display.print((gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "/" + (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "/" + String(gps.date.year() - 2000) + "-" + (localizeHourTime(gps.time.hour()) < 10 ? "0" : "") + String(localizeHourTime(gps.time.hour())) + ":" + (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":" + (gps.time.second() < 10 ? "0" : "") + String(gps.time.second())  );
+      display.print( numToTwoDigits(gps.date.day()) + "/" +  numToTwoDigits(gps.date.month()) + "/" + String(gps.date.year() - 2000) + "-" + numToTwoDigits(localizeHourTime(gps.time.hour()) ) + ":" + numToTwoDigits(gps.time.minute()) + ":" + numToTwoDigits(gps.time.second()));
 
       display.setCursor(1, 10);
       display.print("alt: "  + String(gps.altitude.meters()) + "mts");
@@ -393,6 +397,7 @@ void gpsdata()
       } else {
         lg = gps.location.lng();
         lt = gps.location.lat();
+        registerData();
       }
     }
   }
@@ -415,23 +420,23 @@ void batCheck()
   voltage = voltage + calibration;
   bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
   bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
-
-  display.clearDisplay();
-  display.setTextColor(SH110X_WHITE);
-  display.setTextSize(1);
-  display.setCursor(1, 1);
-  display.print("sensorValue: "  + String(sensorValue));
-  display.setCursor(1, 10);
-  display.print("voltage real: "  + String(voltage - calibration));
-  display.setCursor(1, 30);
-  display.print("voltage: "  + String(voltage));
-  display.setCursor(1, 40);
-  display.print("bat_percentage: "  + String(bat_percentage));
-  display.display();
-  while (digitalRead(buttonPin) == HIGH) {
-    delay(80);
+  if (!initilalized) {
+    display.clearDisplay();
+    display.setTextColor(SH110X_WHITE);
+    display.setTextSize(1);
+    display.setCursor(1, 1);
+    display.print("sensorValue: "  + String(sensorValue));
+    display.setCursor(1, 10);
+    display.print("voltage real: "  + String(voltage - calibration));
+    display.setCursor(1, 30);
+    display.print("voltage: "  + String(voltage));
+    display.setCursor(1, 40);
+    display.print("bat_percentage: "  + String(bat_percentage));
+    display.display();
+    while (digitalRead(buttonPin) == HIGH) {
+      delay(80);
+    }
   }
-  
 
 }
 
