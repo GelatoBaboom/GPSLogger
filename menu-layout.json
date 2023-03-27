@@ -1,0 +1,59 @@
+[
+  {
+    "id": 1,
+    "op": "setTextColor",
+    "invert": false
+  },
+  {
+    "id": 2,
+    "op": "setTextSize",
+    "size": "1"
+  },
+  {
+    "id": 3,
+    "op": "setFont",
+    "font": "Default"
+  },
+  {
+    "id": 6,
+    "op": "setCursor",
+    "x": "0",
+    "y": "0"
+  },
+  {
+    "id": 7,
+    "op": "println",
+    "text": "Menu:"
+  },
+  {
+    "id": 8,
+    "op": "setCursor",
+    "x": "10",
+    "y": "10"
+  },
+  {
+    "id": 9,
+    "op": "println",
+    "text": "-Log trip"
+  },
+  {
+    "id": 4,
+    "op": "setCursor",
+    "x": "10",
+    "y": "22"
+  },
+  {
+    "id": 5,
+    "op": "println",
+    "text": "-Wifi mode"
+  },
+  {
+    "op": "drawRect",
+    "id": 10,
+    "x": "5",
+    "y": "20",
+    "w": "120",
+    "h": "12",
+    "color": "1"
+  }
+]

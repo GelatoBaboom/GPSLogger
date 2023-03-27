@@ -3,17 +3,25 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include <DallasTemperature.h>
 #include <Adafruit_GFX.h>
 #include "FreeSerifBoldItalic18pt7b.h"
 #include <Adafruit_SH110X.h>
 #include <TinyGPSPlus.h>
 #include <math.h>
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebSrv.h>
 
+
+#include <DNSServer.h>
 
 #include <SPI.h>
 #include <SD.h>
+#include "index.h"
+#include "jsgzip.h"
 
 TinyGPSPlus gps;
 int ACCURACY = 15;
@@ -40,6 +48,10 @@ Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, 
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
+DNSServer dnsServer;
+WiFiUDP ntpUDP;
+AsyncWebServer server(80);
+
 File fi;
 bool regEnable = false;
 bool endRequest = false;
@@ -64,11 +76,13 @@ int timeZone = -3;
 bool initilalized = false;
 int buttonPin = D4;
 
+
 uint32_t timerData;
 uint32_t timerReg;
 uint32_t timerOled;
 uint32_t timerBat = 99999999;
 int currentTemp = 0;
+int deviceMode = 1;
 float getTemperature() {
   float temp;
 
@@ -150,7 +164,7 @@ void registerData()
   }
 }
 
-void initializingGPS() {
+void initializingGPS(bool adq) {
   display.clearDisplay();
   display.drawCircle(20, 30, 15, 1);
   display.fillCircle(23, 28, 1, 1);
@@ -167,7 +181,11 @@ void initializingGPS() {
   display.print("GPS");
   display.setCursor(30, 55);
   display.setFont(NULL);
-  display.print("Acquiring signal");
+  if (adq) {
+    display.print("Acquiring signal");
+  } else {
+    display.print(" Initializing");
+  }
   display.display();
 }
 int localizeHourTime(int hours) {
@@ -251,7 +269,7 @@ void gpsdata()
   Serial.println("gps print");
 
   if (!initilalized) {
-    initializingGPS();
+    initializingGPS(true);
   }
 
   currentTemp = (int)trunc(round(getTemperature()));
@@ -450,6 +468,90 @@ static void smartdelay(unsigned long ms)
       gps.encode(Serial.read());
   } while (millis() - start < ms);
 }
+void initLogger() {
+
+  initializingGPS(true);
+  //If there is SD memory on, get configs
+  String val = "";
+  val = getConfigs("accuracy");
+  Serial.println("accuracy: " + val);
+  ACCURACY  = val != "" ? val.toInt() : ACCURACY;
+  val = getConfigs("displayTimeOut");
+  Serial.println("displayTimeOut: " + val);
+  displayTimeOut = val != "" ? val.toInt() : displayTimeOut;
+  val = getConfigs("altAccuracy");
+  Serial.println("ALTACCURACY: " + val);
+  ALTACCURACY = val != "" ? val.toInt() : ALTACCURACY;
+
+  getLastFile();
+  timerOled = millis();
+  timerData = millis();
+  delay(1000);
+}
+void menuDisplay(int selMode) {
+  display.clearDisplay();
+  display.setTextColor(SH110X_WHITE);
+  display.setTextSize(1);
+  display.setFont(NULL);
+  display.setCursor(0, 0);
+  display.println("Select mode:");
+  display.setCursor(10, 10);
+  display.println("-Log trip");
+  display.setCursor(10, 22);
+  display.println("-Wifi mode");
+  if (deviceMode == 1) {
+    display.drawRect(5, 8, 120, 12, 1);
+  }
+  if (deviceMode == 2) {
+    display.drawRect(5, 20, 120, 12, 1);
+  }
+  display.display();
+}
+
+void menu() {
+  delay(1000);
+  menuDisplay(1);
+  bool endMenu = false;
+  while (!endMenu) {
+    if (digitalRead(buttonPin) == LOW) {
+      menuDisplay(0);
+      delay(100);
+      menuDisplay(deviceMode);
+    }
+    int count = 0;
+    while (digitalRead(buttonPin) == LOW && count < 150) {
+      count++;
+      delay(5);
+    }
+    if (digitalRead(buttonPin) == LOW )
+    {
+      if (deviceMode == 1) {
+        initLogger();
+        endMenu = true;
+        Serial.println(F("Mode N1"));
+      }
+      if (deviceMode == 2) {
+        manageServer();
+        endMenu = true;
+        Serial.println(F("Mode N2"));
+        display.clearDisplay();
+        display.setTextSize(2);
+        display.setFont(NULL);
+        display.setCursor(10, 22);
+        display.println("Wifi mode");
+        display.display();
+      }
+    } else {
+      deviceMode = deviceMode > 1 ? 1 : deviceMode + 1;
+      menuDisplay(deviceMode);
+    }
+
+    while (digitalRead(buttonPin) == HIGH) {
+      delay(5);
+
+    }
+  }
+}
 
 void setup(void) {
 
@@ -481,33 +583,21 @@ void setup(void) {
     display.display();
     sdOn = false;
     while (digitalRead(buttonPin) == HIGH) {
-      delay(80);
+      delay(10);
     }
 
   } else {
     sdOn = true;
-    initializingGPS();
-    //If there is SD memory on, get configs
-    String val = "";
-    val = getConfigs("accuracy");
-    Serial.println("accuracy: " + val);
-    ACCURACY  = val != "" ? val.toInt() : ACCURACY;
-    val = getConfigs("displayTimeOut");
-    Serial.println("displayTimeOut: " + val);
-    displayTimeOut = val != "" ? val.toInt() : displayTimeOut;
-    val = getConfigs("altAccuracy");
-    Serial.println("ALTACCURACY: " + val);
-    ALTACCURACY = val != "" ? val.toInt() : ALTACCURACY;
   }
-  getLastFile();
-  timerOled = millis();
-  timerData = millis();
-  initializingGPS();
-  delay(1000);
+  initializingGPS(false);
+  delay(2000);
   batCheck();
+  menu();
+
 }
-void loop(void) {
+void manageLogger() {
   //reads for 1 seg gps data
+  WiFi.mode(WIFI_OFF);
   smartdelay(1000);
   // check if the pushbutton is pressed.
   if ((millis() - timerOled > displayTimeOut * 1000) && initilalized) {
@@ -532,4 +622,26 @@ void loop(void) {
   }
   gpsdata();
 
+}
+void index_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_gz, index_len);
+  response->addHeader("Content-Encoding", "gzip");
+  request->send(response);
+}
+void manageServer() {
+  IPAddress apIP(192, 168, 4, 1);
+  WiFi.mode(WIFI_AP_STA );
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  WiFi.softAP("GPSLogger", "123456789" );
+  dnsServer.start(53, "*", apIP);
+  server.on("/", HTTP_GET, index_handler);
+  server.begin();
+}
+void loop(void) {
+  if (deviceMode == 1) {
+    manageLogger();
+  }
+  if (deviceMode == 2) {
+    dnsServer.processNextRequest();
+  }
 }
