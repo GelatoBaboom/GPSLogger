@@ -123,6 +123,12 @@ String numToTwoDigits(int num )
 {
   return ((num < 10) ? "0" : "") +  String(num);
 }
+int localizeHourTime(int hours) {
+  hours = hours + timeZone;
+  hours = hours < 0 ? hours + 24 : hours;
+  hours = hours > 23 ? hours - 24 : hours;
+  return hours;
+}
 void registerData()
 {
   if (regEnable) {
@@ -188,12 +194,7 @@ void initializingGPS(bool adq) {
   }
   display.display();
 }
-int localizeHourTime(int hours) {
-  hours = hours + timeZone;
-  hours = hours < 0 ? hours + 24 : hours;
-  hours = hours > 23 ? hours - 24 : hours;
-  return hours;
-}
+
 double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
 #define R 6371000.0
 #define PI 3.1415926535897932384626433832795
@@ -263,6 +264,53 @@ String getConfigs(String key)
   fi.close();
   return "";
 
+}
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+void batCheck()
+{
+  float voltage;
+  int analogInPin  = A0;    // Analog input pin
+  int sensorValue;
+  float calibration = -0.20; // Check Battery voltage using multimeter & add/subtract the value
+  sensorValue = analogRead(analogInPin);
+  // (31k/(100k+31k)) * 4.2V = sensor V.
+  //voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); //multiply by two as voltage divider network is 100K & 100K Resistor
+  //bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  voltage = (sensorValue / 0.230769230769) / 1000; //multiply by two as voltage divider network is 100K & 100K Resistor
+  voltage = voltage + calibration;
+  bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
+  if (!initilalized) {
+    display.clearDisplay();
+    display.setTextColor(SH110X_WHITE);
+    display.setTextSize(1);
+    display.setCursor(1, 1);
+    display.print("sensorValue: "  + String(sensorValue));
+    display.setCursor(1, 10);
+    display.print("voltage real: "  + String(voltage - calibration));
+    display.setCursor(1, 30);
+    display.print("voltage: "  + String(voltage));
+    display.setCursor(1, 40);
+    display.print("bat_percentage: "  + String(bat_percentage));
+    display.display();
+    while (digitalRead(buttonPin) == HIGH) {
+      delay(80);
+    }
+  }
+
+}
+static void smartdelay(unsigned long ms)
+{
+  unsigned long start = millis();
+  do
+  {
+    //Serial.println(String(Serial.available()));
+    while (Serial.available())
+      gps.encode(Serial.read());
+  } while (millis() - start < ms);
 }
 void gpsdata()
 {
@@ -420,54 +468,10 @@ void gpsdata()
     }
   }
 }
-float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-void batCheck()
-{
-  float voltage;
-  int analogInPin  = A0;    // Analog input pin
-  int sensorValue;
-  float calibration = -0.20; // Check Battery voltage using multimeter & add/subtract the value
-  sensorValue = analogRead(analogInPin);
-  // (31k/(100k+31k)) * 4.2V = sensor V.
-  //voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); //multiply by two as voltage divider network is 100K & 100K Resistor
-  //bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
-  voltage = (sensorValue / 0.230769230769) / 1000; //multiply by two as voltage divider network is 100K & 100K Resistor
-  voltage = voltage + calibration;
-  bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
-  bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
-  if (!initilalized) {
-    display.clearDisplay();
-    display.setTextColor(SH110X_WHITE);
-    display.setTextSize(1);
-    display.setCursor(1, 1);
-    display.print("sensorValue: "  + String(sensorValue));
-    display.setCursor(1, 10);
-    display.print("voltage real: "  + String(voltage - calibration));
-    display.setCursor(1, 30);
-    display.print("voltage: "  + String(voltage));
-    display.setCursor(1, 40);
-    display.print("bat_percentage: "  + String(bat_percentage));
-    display.display();
-    while (digitalRead(buttonPin) == HIGH) {
-      delay(80);
-    }
-  }
 
-}
 
-static void smartdelay(unsigned long ms)
-{
-  unsigned long start = millis();
-  do
-  {
-    //Serial.println(String(Serial.available()));
-    while (Serial.available())
-      gps.encode(Serial.read());
-  } while (millis() - start < ms);
-}
+
+
 void initLogger() {
 
   initializingGPS(true);
@@ -487,6 +491,20 @@ void initLogger() {
   timerOled = millis();
   timerData = millis();
   delay(1000);
+}
+void index_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_gz, sizeof(index_gz));
+  response->addHeader("Content-Encoding", "gzip");
+  request->send(response);
+}
+void manageServer() {
+  IPAddress apIP(192, 168, 4, 1);
+  WiFi.mode(WIFI_AP_STA );
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  WiFi.softAP("GPSLogger", "123456789" );
+  dnsServer.start(53, "*", apIP);
+  server.on("/", HTTP_GET, index_handler);
+  server.begin();
 }
 void menuDisplay(int selMode) {
   display.clearDisplay();
@@ -623,20 +641,7 @@ void manageLogger() {
   gpsdata();
 
 }
-void index_handler(AsyncWebServerRequest * request) {
-  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_gz, index_len);
-  response->addHeader("Content-Encoding", "gzip");
-  request->send(response);
-}
-void manageServer() {
-  IPAddress apIP(192, 168, 4, 1);
-  WiFi.mode(WIFI_AP_STA );
-  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-  WiFi.softAP("GPSLogger", "123456789" );
-  dnsServer.start(53, "*", apIP);
-  server.on("/", HTTP_GET, index_handler);
-  server.begin();
-}
+
 void loop(void) {
   if (deviceMode == 1) {
     manageLogger();
