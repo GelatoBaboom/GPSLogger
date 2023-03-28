@@ -139,7 +139,7 @@ void registerData()
     int currentYear = gps.date.year();
     if (fileName == "") {
       fileNum = fileNum + 1;
-      fileName =  "route_" + numToTwoDigits(localizeHourTime(gps.time.hour())) + numToTwoDigits(gps.time.minute())  + numToTwoDigits(gps.time.second()) + "-" + String(fileNum) + ".gpx";
+      fileName =  "route_" + numToTwoDigits(localizeHourTime(gps.time.hour())) + numToTwoDigits(gps.time.minute())  + numToTwoDigits(gps.time.second()) + "-" + String(fileNum) + ".csv";
     }
     if (currentYear > 2000) {
       if (!SD.exists("/regs"))
@@ -283,23 +283,23 @@ void batCheck()
   voltage = voltage + calibration;
   bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
   bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
-  if (!initilalized) {
-    display.clearDisplay();
-    display.setTextColor(SH110X_WHITE);
-    display.setTextSize(1);
-    display.setCursor(1, 1);
-    display.print("sensorValue: "  + String(sensorValue));
-    display.setCursor(1, 10);
-    display.print("voltage real: "  + String(voltage - calibration));
-    display.setCursor(1, 30);
-    display.print("voltage: "  + String(voltage));
-    display.setCursor(1, 40);
-    display.print("bat_percentage: "  + String(bat_percentage));
-    display.display();
-    while (digitalRead(buttonPin) == HIGH) {
-      delay(80);
-    }
-  }
+  //  if (!initilalized) {
+  //    display.clearDisplay();
+  //    display.setTextColor(SH110X_WHITE);
+  //    display.setTextSize(1);
+  //    display.setCursor(1, 1);
+  //    display.print("sensorValue: "  + String(sensorValue));
+  //    display.setCursor(1, 10);
+  //    display.print("voltage real: "  + String(voltage - calibration));
+  //    display.setCursor(1, 30);
+  //    display.print("voltage: "  + String(voltage));
+  //    display.setCursor(1, 40);
+  //    display.print("bat_percentage: "  + String(bat_percentage));
+  //    display.display();
+  //    while (digitalRead(buttonPin) == HIGH) {
+  //      delay(80);
+  //    }
+  //  }
 
 }
 static void smartdelay(unsigned long ms)
@@ -405,7 +405,7 @@ void gpsdata()
             display.fillRect(0, 48, 128, 20, 0);
             display.display();
             display.setCursor(1, 50);
-            display.print("file: route_" + String(gps.time.hour() + timeZone) +  String(gps.time.minute())  + String(gps.time.second()) + ".gpx" ) ;
+            display.print("file: route_" + String(gps.time.hour() + timeZone) +  String(gps.time.minute())  + String(gps.time.second()) + ".csv" ) ;
             display.display();
             smartdelay(1000);
           }
@@ -492,11 +492,97 @@ void initLogger() {
   timerData = millis();
   delay(1000);
 }
-void index_handler(AsyncWebServerRequest * request) {
-  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_gz, sizeof(index_gz));
+void getDirectory(File dir, String *json) {
+  bool newEntry = true;
+  while (true) {
+
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      break;
+    }
+    if (!newEntry) {
+      *json += ",";
+    } else {
+      newEntry = false;
+    }
+    *json += "\"";
+    *json += entry.name();
+    *json += "\"";
+
+    entry.close();
+  }
+}
+void getRegisters_handler(AsyncWebServerRequest * request) {
+  String json_response;
+  json_response = "{\"registers\":[";
+  if (sdOn) {
+    File root = SD.open("/regs/");
+    getDirectory(root, &json_response);
+  }
+  json_response += "]}";
+
+
+  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_response);
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  request->send(response);
+}
+void convertRegister_handler(AsyncWebServerRequest * request) {
+
+  AsyncWebParameter* p = request->getParam(0);
+  String filename = p->value();
+  File file = SD.open("/regs/" + filename);
+  String json_response;
+  json_response = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<gpx version=\"1.0\" creator=\"GPSLogger\" xmlns=\"http://www.topografix.com/GPX/1/0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">\n<trk>";
+  json_response += "<name>" + filename + "</name><trkseg>";
+  while (file.available()) {
+    String v = fi.readStringUntil('\r');
+    fi.readStringUntil('\n');
+    // do something with the line
+  }
+  file.close();
+  
+  json_response += "</trkseg></trk></gpx>";
+
+
+  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_response);
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  request->send(response);
+}
+void downloadRegister_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/regs/route_120753-5.csv", String(), true);
+
+  response->addHeader("Server", "ESP Async Web Server");
+  request->send(response);
+}
+void jquerymin_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/javascript", jquerymin_gz, jquerymin_len);
   response->addHeader("Content-Encoding", "gzip");
   request->send(response);
 }
+void bootstrapjs_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/javascript", bootstrapjs_gz, bootstrapjs_len);
+  response->addHeader("Content-Encoding", "gzip");
+  request->send(response);
+}
+void bootstrapcss_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", bootstrapcss_gz, bootstrapcss_len);
+  response->addHeader("Content-Encoding", "gzip");
+  request->send(response);
+}
+void emoji_handler(AsyncWebServerRequest * request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", emoji_jpg, emoji_len);
+  response->addHeader("Content-Encoding", "image/jpg");
+  request->send(response);
+}
+void index_handler(AsyncWebServerRequest * request) {
+  //Serial.println("length1: " + (sizeof(index_gz)));
+  //Serial.println("length2: " + (sizeof(index_gz[0])));
+  //Serial.println("cont: " + index_gz);
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_html, index_len);
+  response->addHeader("Content-Encoding", "text/html");
+  request->send(response);
+}
+
 void manageServer() {
   IPAddress apIP(192, 168, 4, 1);
   WiFi.mode(WIFI_AP_STA );
@@ -504,6 +590,13 @@ void manageServer() {
   WiFi.softAP("GPSLogger", "123456789" );
   dnsServer.start(53, "*", apIP);
   server.on("/", HTTP_GET, index_handler);
+  server.on("/jquery-3.js", HTTP_GET, jquerymin_handler);
+  server.on("/bootstrap.bundle.min.js", HTTP_GET, bootstrapjs_handler);
+  server.on("/bootstrap.css", HTTP_GET, bootstrapcss_handler);
+  server.on("/emoji.jpg", HTTP_GET, emoji_handler);
+  server.on("/regs", HTTP_GET, getRegisters_handler);
+  server.on("/convert", HTTP_GET, convertRegister_handler);
+  server.on("/download", HTTP_GET, downloadRegister_handler);
   server.begin();
 }
 void menuDisplay(int selMode) {
@@ -608,7 +701,7 @@ void setup(void) {
     sdOn = true;
   }
   initializingGPS(false);
-  delay(2000);
+  delay(1000);
   batCheck();
   menu();
 
@@ -648,5 +741,6 @@ void loop(void) {
   }
   if (deviceMode == 2) {
     dnsServer.processNextRequest();
+    //traer el batt level aca
   }
 }

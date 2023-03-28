@@ -9,189 +9,44 @@
     <!-- Bootstrap core CSS -->
     <link href="/bootstrap.css" rel="stylesheet">
     <style>
-        body {
-            padding-top: 3.5rem;
-        }
-
-        .bg-dark {
-            background-color: #4387ca !important;
-        }
-
-        .bd-placeholder-img {
-            font-size: 1.125rem;
-            text-anchor: middle;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-
-        .navbar-collapse {
-            transition: .4s;
-        }
-
-        @media (min-width: 768px) {
-            .bd-placeholder-img-lg {
-                font-size: 3.5rem;
-            }
-        }
-
-        @media screen and (max-width: 768px) {
-            .alert {
-                padding: 5px !important;
-            }
-
-            .alertCont {
-                width: 120px !important;
-            }
-
-            .footMsg {
-                float: left !important;
-                top: -80px !important;
-            }
-
-            .btn-regs {
-                margin-bottom: 10px;
-            }
-        }
-
-        .alert {
-            display: none;
-            text-align: center;
-        }
-
-        .alertCont {
-            width: 200px;
-            position: absolute;
-            top: 0;
-            right: 0;
-        }
-
-        .footMsg {
-            float: right;
-            position: relative;
-            top: 22px;
-            font-size: 14px;
-        }
-
-        .displayData {
-            padding: 4px 10px 4px 10px;
-            background: #dadada;
-            border-radius: 4px;
-            font-size: 18px;
-        }
-
-        .datedv {
-            display: inline-table;
-            padding: 4px;
-            border: 1px solid #dadada;
-            cursor: pointer;
-        }
-
-        .datedvSel {
-            background-color: #dadada;
-        }
-
-        .dateCont {
-            border: 1px solid #898989;
-        }
-
-        .dateTitleDv {
-            border: 1px solid #868686;
-            background-color: #b9cbff;
-            border-bottom: none;
-            border-top: none;
-            padding: 2px 0px 2px 5px;
-        }
-
-            .dateTitleDv:first-child {
-                border-top: 1px solid #868686;
-            }
+    
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-        <a class="navbar-brand" href="#"><img alt="" style="height:40px;margin-top:-5px;margin-right:10px;" src="/logo.svg" />FungoServer</a>
-
-        <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-            <ul class="navbar-nav mr-auto">
-                <li class="nav-item active">
-                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/config">Configuración</a>
-                </li>
-            </ul>
-        </div>
-        <button id="cmdRegBtnInit" type="button" class="btn btn-success btn-sm" style="display:none;">Registrar</button>
-        <button id="cmdRegBtnStop" type="button" class="btn btn-danger btn-sm" style="display:none;">Detener</button>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-    </nav>
-    <div id="msg" style="width: 100%;position: fixed;top: -5px;z-index: 1;">
-        <div style="margin: 0 auto;width: 300px;padding: 5px;text-align: center;border-radius: 4px;background-color: #d34141;color:#fff;">msg</div>
-    </div>
-
-    <main role="main">
-
-        <!-- Main jumbotron for a primary marketing message or call to action -->
-        <div class="jumbotron">
-            <div class="container" style="position:relative;">
-                <span class="displayData"><span id="mainDate"></span> <b id="mainTime"></b></span>
-                <h2 class="display-3" style="margin-top:-5px;font-size: 4.5rem"><span id="mainTemp"></span>º</h2>
-                <h4 style="margin-top: -15px;">humedad <span id="mainHum"></span>%</h4>
-                <div class="alertCont">
-                    <div id="humInited" class="alert alert-warning" role="alert">Humificador prendido</div>
-                    <div id="calInited" class="alert alert-warning" role="alert">Calefactor prendido</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="container">
-            <!-- Example row of columns -->
-
-            <div class="row">
-                <div class="col-md-6">
-                    <h2>Gráfico de temperatura y humedad</h2>
-                    <canvas id="tempChart" style="display: block; width: 1008px; z-index:1;" width="1008" class="chartjs-render-monitor" />
-                    <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>
-                </div>
-                <div class="col-md-6">
-                    <h2>Registros disponibles</h2>
-                    <div>
-                        <div class="dateTitleDv">Año</div><div id="yCont" class="dateCont"></div>
-                        <div class="dateTitleDv">Mes</div><div id="mCont" class="dateCont"></div>
-                        <div class="dateTitleDv">Dia</div><div id="dCont" class="dateCont"></div>
-                        <div style="margin-top:15px;">
-                            Ver muestras por hora: <b id="tempChartSamplesLabel">12</b>
-                            <div style="margin-top:5px;">
-                                <input id="tempChartSamples" type="range" min="1" max="12" value="1" />
-                            </div>
-                        </div>
-                    </div>
-                    <p>
-                        La temperatura/humedad minima fue: <b id="min"></b><br />y la maxima: <b id="max"></b>
-                    </p>
-                    <button id="deleteregday" type="button" class="btn btn-secondary btn-regs">Eliminar registro seleccionado</button>
-                    <button id="downloadregday" type="button" class="btn btn-success btn-regs">Descargar registro seleccionado</button>
-                </div>
-
-            </div>
-            <div class="row">
-            </div>
-            <hr>
-        </div> <!-- /container -->
-    </main>
+	<div class="container">
+		<div class="row">
+			<div class="col-12">
+				<h2 class="text-center">File Listing</h2>
+				<ul id="regs">
+					
+				</ul>
+			</div>
+		</div>
+	</div>
     <footer class="container">
-        <p><a href="http://monodev.tk" target="_blank"><img alt="" style="height:80px;margin-top:-5px;" src="/monodev.svg" /></a> &copy; 2016-2020<span class="footMsg">temperatura dispositivo: <b id="devTemp"></b>º <span id="ipdev"</span></span></p>
+        <p> &copy; 2016-2023<span class="footMsg"></p>
     </footer>
     <script src="/jquery-3.js" crossorigin="anonymous"></script>
     <script>window.jQuery || document.write('<script src="/jquery-3.js"><\/script>')</script>
     <script src="/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="/chart.min.js"></script>
-    <script type="text/javascript" src="/render.js"></script>
-    <script type="text/javascript" src="/utils.js"></script>
-</body>
+	<script>
+
+$(document).ready(function() {
+  $.ajax({
+    url: '/regs',
+    type: 'GET',
+    success: function(response) {
+      var registers = response.registers;
+      var html = "<ul>";
+      for (var i = 0; i < registers.length; i++) {
+        html += "<li>" + registers[i] + "</li>";
+      }
+      html += "</ul>";
+      $('#regs').html(html);
+    }
+  });
+});
+
+	</script>
+    </body>
 </html>
