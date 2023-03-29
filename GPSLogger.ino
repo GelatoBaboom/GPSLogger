@@ -526,32 +526,113 @@ void getRegisters_handler(AsyncWebServerRequest * request) {
   response->addHeader("Access-Control-Allow-Origin", "*");
   request->send(response);
 }
-void convertRegister_handler(AsyncWebServerRequest * request) {
+//void convertRegister_handler(AsyncWebServerRequest * request) {
+//
+//  AsyncWebParameter* p = request->getParam(0);
+//
+//  AsyncResponseStream *response = request->beginResponseStream("text/xml, application/xml");
+//  response->addHeader("Server", "ESP Async Web Server");
+//
+//  String filename = p->value();
+//  File fi = SD.open("/regs/" + filename);
+//
+//  response->print("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<gpx version=\"1.0\" creator=\"GPSLogger\" xmlns=\"http://www.topografix.com/GPX/1/0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">\n<trk>");
+//  response->print("<name>" + filename + "</name><trkseg>");
+//  if (fi.available()) {
+//    //primero leer encabezado y desestimarlo
+//    fi.readStringUntil('\r');
+//    fi.readStringUntil('\n');
+//
+//    while (fi.available()) {
+//      String v = "";
+//      fi.readStringUntil(',');
+//      //v = fi.readStringUntil(',');
+//      response->print("<trkpt lat=\"" + fi.readStringUntil(','));
+//      //v = fi.readStringUntil(',');
+//      response->print("\" lon=\"" + fi.readStringUntil(',') + "\">");
+//      //v = fi.readStringUntil(',');
+//      response->print("<ele>" + fi.readStringUntil(',') + "</ele>");
+//      //v = fi.readStringUntil(',');
+//      response->print("<time>" + fi.readStringUntil(',') + "</time>");
+//      //v = fi.readStringUntil(',');
+//      response->print("<speed>" + fi.readStringUntil(',') + "</speed></trkpt>");
+//      fi.readStringUntil('\r');
+//      fi.readStringUntil('\n');
+//    }
+//  }
+//  fi.close();
+//
+//  response->print("</trkseg></trk></gpx>");
+//  request->send(response);
+//}
+void readFile_handler(AsyncWebServerRequest * request) {
 
-  AsyncWebParameter* p = request->getParam(0);
-  String filename = p->value();
-  File file = SD.open("/regs/" + filename);
-  String json_response;
-  json_response = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<gpx version=\"1.0\" creator=\"GPSLogger\" xmlns=\"http://www.topografix.com/GPX/1/0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">\n<trk>";
-  json_response += "<name>" + filename + "</name><trkseg>";
-  while (file.available()) {
-    String v = fi.readStringUntil('\r');
-    fi.readStringUntil('\n');
-    // do something with the line
+  String filename = "";
+  int page = 0;
+  int count = 0;
+  int params = request->params();
+
+  for (int i = 0; i < params; i++) {
+    AsyncWebParameter* p = request->getParam(i);
+    if ((p->name()) == "n") {
+      filename = (p->value());
+    }
+    if ((p->name()) == "p") {
+      page = (p->value()).toInt();
+    }
+    if ((p->name()) == "c") {
+      count = (p->value()).toInt();
+    }
   }
-  file.close();
-  
-  json_response += "</trkseg></trk></gpx>";
 
-
-  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_response);
-  response->addHeader("Access-Control-Allow-Origin", "*");
-  request->send(response);
-}
-void downloadRegister_handler(AsyncWebServerRequest * request) {
-  AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/regs/route_120753-5.csv", String(), true);
-
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
   response->addHeader("Server", "ESP Async Web Server");
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  File fi = SD.open("/regs/" + filename);
+
+  response->print("{\"regs\":[");
+  int lineCount = 0;
+  if (fi.available()) {
+    //primero leer encabezado y desestimarlo
+    fi.readStringUntil('\r');
+    fi.readStringUntil('\n');
+
+    if (page > 0) {
+
+      while (fi.available() && lineCount < (page * count) ) {
+        fi.readStringUntil('\n');
+        lineCount++;
+      }
+    }
+    lineCount = 0;
+
+    while (fi.available() && lineCount < count) {
+      if (lineCount > 1) {
+        response->print(",");
+      }
+      fi.readStringUntil(',');
+      String v = "";
+      v = fi.readStringUntil(',');
+      response->printf("{\"lat\":\"%s\"", v);
+      v = fi.readStringUntil(',');
+      response->printf(",\"long\":\"%s\"", v);
+      v = fi.readStringUntil(',');
+      response->printf(",\"elev\":\"%s\"", v);
+      v = fi.readStringUntil(',');
+      response->print(",\"time\":\"" + v + "\"" );
+      fi.readStringUntil(',');
+      fi.readStringUntil(',');
+      v = fi.readStringUntil('\r');
+      response->printf(",\"speed\":\"%s\"}", v);
+
+      //fi.readStringUntil('\r');
+      fi.readStringUntil('\n');
+
+      lineCount++;
+    }
+  }
+  response->printf("],\"lines\":%u}", lineCount);
+  fi.close();
   request->send(response);
 }
 void jquerymin_handler(AsyncWebServerRequest * request) {
@@ -595,8 +676,9 @@ void manageServer() {
   server.on("/bootstrap.css", HTTP_GET, bootstrapcss_handler);
   server.on("/emoji.jpg", HTTP_GET, emoji_handler);
   server.on("/regs", HTTP_GET, getRegisters_handler);
-  server.on("/convert", HTTP_GET, convertRegister_handler);
-  server.on("/download", HTTP_GET, downloadRegister_handler);
+  //server.on("/convert", HTTP_GET, convertRegister_handler);
+  server.on("/downloadcsv", HTTP_GET, readFile_handler);
+
   server.begin();
 }
 void menuDisplay(int selMode) {

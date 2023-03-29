@@ -30,7 +30,32 @@
     <script>window.jQuery || document.write('<script src="/jquery-3.js"><\/script>')</script>
     <script src="/bootstrap.bundle.min.js"></script>
 	<script>
+function downloadReg(arg){
+  var jsonData = {};
+  
+  var xmlString = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>n<gpx version="1.0" creator="GPSLogger" xmlns="http://www.topografix.com/GPX/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">n<trk>';
+  xmlString +='<name>' + arg + '</name><trkseg>';
+  var page = 0;
+  do{
+  $.ajax({url: '/downloadcsv?c=20&p='+ page +'&n=' + arg, type: 'GET',	async: false,success: function(response) {jsonData = response;
+  
+    for( var i = 0; i < jsonData.lines; i++ ){
+		var obj = jsonData.regs[i];
+		xmlString +="<trkpt lat=\"" + obj.lat;
+		xmlString +="\" lon=\"" + obj.long+ "\">";
+		xmlString +="<ele>" + obj.elev + "</ele>";
+		xmlString +="<time>" + obj.time + "</time>";
+		xmlString +="<speed>" + obj.speed + "</speed></trkpt>";
+		}
+    }
+	});
+  page++;
+  }while(jsonData.lines==20);
+  xmlString += '</trkseg></trk></gpx>';
+  var data = "text/xml;charset=utf-8," + encodeURIComponent(xmlString);
+  $('<a href="data:' + data + '" download="data.xml">Download XML file</a>').appendTo('body').trigger("click");
 
+}
 $(document).ready(function() {
   $.ajax({
     url: '/regs',
@@ -39,7 +64,7 @@ $(document).ready(function() {
       var registers = response.registers;
       var html = "<ul>";
       for (var i = 0; i < registers.length; i++) {
-        html += "<li>" + registers[i] + "</li>";
+        html += "<li style='cursor:pointer;' onclick='downloadReg(\""+registers[i]+"\")' >" + registers[i] +"</li>";
       }
       html += "</ul>";
       $('#regs').html(html);
