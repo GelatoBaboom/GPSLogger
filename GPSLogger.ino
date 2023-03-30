@@ -469,9 +469,6 @@ void gpsdata()
   }
 }
 
-
-
-
 void initLogger() {
 
   initializingGPS(true);
@@ -490,6 +487,7 @@ void initLogger() {
   getLastFile();
   timerOled = millis();
   timerData = millis();
+  Serial.println("Done Init");
   delay(1000);
 }
 void getDirectory(File dir, String *json) {
@@ -505,9 +503,12 @@ void getDirectory(File dir, String *json) {
     } else {
       newEntry = false;
     }
-    *json += "\"";
+    *json += "{\"name\":\"";
     *json += entry.name();
     *json += "\"";
+     *json += ",\"size\":";
+    *json += entry.size();
+    *json += "}";
 
     entry.close();
   }
@@ -570,6 +571,7 @@ void readFile_handler(AsyncWebServerRequest * request) {
   String filename = "";
   int page = 0;
   int count = 0;
+  uint32_t pos = 0;
   int params = request->params();
 
   for (int i = 0; i < params; i++) {
@@ -583,6 +585,9 @@ void readFile_handler(AsyncWebServerRequest * request) {
     if ((p->name()) == "c") {
       count = (p->value()).toInt();
     }
+    if ((p->name()) == "s") {
+      pos = (p->value()).toInt();
+    }
   }
 
   AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -591,6 +596,7 @@ void readFile_handler(AsyncWebServerRequest * request) {
   File fi = SD.open("/regs/" + filename);
 
   response->print("{\"regs\":[");
+  String v = "";
   int lineCount = 0;
   if (fi.available()) {
     //primero leer encabezado y desestimarlo
@@ -598,20 +604,20 @@ void readFile_handler(AsyncWebServerRequest * request) {
     fi.readStringUntil('\n');
 
     if (page > 0) {
-
-      while (fi.available() && lineCount < (page * count) ) {
-        fi.readStringUntil('\n');
-        lineCount++;
-      }
+      fi.seek(pos);
+      //      while (fi.available() && lineCount < (page * count) ) {
+      //        fi.readStringUntil('\n');
+      //        lineCount++;
+      //      }
     }
     lineCount = 0;
 
     while (fi.available() && lineCount < count) {
-      if (lineCount > 1) {
+      if (lineCount > 0) {
         response->print(",");
       }
       fi.readStringUntil(',');
-      String v = "";
+
       v = fi.readStringUntil(',');
       response->printf("{\"lat\":\"%s\"", v);
       v = fi.readStringUntil(',');
@@ -620,10 +626,12 @@ void readFile_handler(AsyncWebServerRequest * request) {
       response->printf(",\"elev\":\"%s\"", v);
       v = fi.readStringUntil(',');
       response->print(",\"time\":\"" + v + "\"" );
-      fi.readStringUntil(',');
-      fi.readStringUntil(',');
+      v =  fi.readStringUntil(',');
+      response->print(",\"chkp\":\"" + v + "\"" );
+      v = fi.readStringUntil(',');
+      response->print(",\"temp\":" + v + "" );
       v = fi.readStringUntil('\r');
-      response->printf(",\"speed\":\"%s\"}", v);
+      response->print(",\"speed\":" + v + "}");
 
       //fi.readStringUntil('\r');
       fi.readStringUntil('\n');
@@ -631,7 +639,8 @@ void readFile_handler(AsyncWebServerRequest * request) {
       lineCount++;
     }
   }
-  response->printf("],\"lines\":%u}", lineCount);
+  response->printf("],\"position\":%u,", fi.position());
+  response->printf("\"lines\":%u}", lineCount);
   fi.close();
   request->send(response);
 }
@@ -702,11 +711,15 @@ void menuDisplay(int selMode) {
 }
 
 void menu() {
+  Serial.println(F("btn: ") + String(digitalRead(buttonPin)));
   delay(1000);
+  //para que en la primer vuelta lo ponga en 1
+  deviceMode = 2;
   menuDisplay(1);
   bool endMenu = false;
   while (!endMenu) {
     if (digitalRead(buttonPin) == LOW) {
+      Serial.println(F("btn: ") + String(digitalRead(buttonPin)));
       menuDisplay(0);
       delay(100);
       menuDisplay(deviceMode);
@@ -719,6 +732,7 @@ void menu() {
     if (digitalRead(buttonPin) == LOW )
     {
       if (deviceMode == 1) {
+        WiFi.mode(WIFI_OFF);
         initLogger();
         endMenu = true;
         Serial.println(F("Mode N1"));
@@ -739,7 +753,7 @@ void menu() {
       menuDisplay(deviceMode);
     }
 
-    while (digitalRead(buttonPin) == HIGH) {
+    while (digitalRead(buttonPin) == HIGH && !endMenu) {
       delay(5);
 
     }
@@ -790,7 +804,6 @@ void setup(void) {
 }
 void manageLogger() {
   //reads for 1 seg gps data
-  WiFi.mode(WIFI_OFF);
   smartdelay(1000);
   // check if the pushbutton is pressed.
   if ((millis() - timerOled > displayTimeOut * 1000) && initilalized) {

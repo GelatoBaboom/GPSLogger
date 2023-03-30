@@ -7,71 +7,220 @@
     <meta name="author" content="MonoDev">
     <title>GPS Logger Conector</title>
     <!-- Bootstrap core CSS -->
-    <link href="/bootstrap.css" rel="stylesheet">
+    <link href="bootstrap.css" rel="stylesheet">
     <style>
-    
+        h2 {
+            padding: 5px;
+            background: #D9894FBF;
+            margin-top: 10px;
+            border-radius: 9px;
+            color: #681A1A;
+        }
+
+        ul#regs {
+            padding: 0;
+            list-style: none;
+            font-family: sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+
+            ul#regs li {
+                margin: 10px 0;
+                padding: 15px;
+                border-radius: 4px;
+                background-color: #e6e6e6;
+                position: relative;
+            }
+
+                ul#regs li span {
+                    font-size: 14px;
+                    font-weight: normal;
+                    color: #0066cc;
+                    display: inline-block;
+                    position: absolute;
+                    right: 15px;
+                    top: 15px;
+                }
+
+                ul#regs li div {
+                    font-size: 12px;
+                    font-weight: normal;
+                    color: #aaaaaa;
+                    display: inline-block;
+                    position: absolute;
+                    right: 15px;
+                    top: 40px;
+                }
+
+        .spinner-cont {
+            width: 100%;
+            height: 100%;
+        }
+
+        #Spinner > div.spinner-border {
+            position: absolute;
+            width: 8rem;
+            height: 8rem;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            top: 0;
+            margin: auto;
+            border: 0.35em solid #D9894F;
+            border-right-color: #FFF;
+        }
+
+        #Spinner {
+            position: fixed;
+            top: 0;
+            background-color: rgba(255,255,255,0.70);
+            z-index: 9999;
+        }
+
+        .spinnerInner {
+            position: absolute;
+            width: 42px;
+            height: 65px;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            top: 0;
+            margin: auto;
+            font-size: 40px;
+            color: #000000c2;
+        }
     </style>
 </head>
 <body>
-	<div class="container">
-		<div class="row">
-			<div class="col-12">
-				<h2 class="text-center">File Listing</h2>
-				<ul id="regs">
-					
-				</ul>
-			</div>
-		</div>
-	</div>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="text-center">Routes Listing</h2>
+                <ul id="regs">
+                </ul>
+            </div>
+        </div>
+    </div>
     <footer class="container">
-        <p> &copy; 2016-2023<span class="footMsg"></p>
+        <p style="text-align: center;"> &copy; 2016-2023<span class="footMsg"></span></p>
     </footer>
-    <script src="/jquery-3.js" crossorigin="anonymous"></script>
-    <script>window.jQuery || document.write('<script src="/jquery-3.js"><\/script>')</script>
-    <script src="/bootstrap.bundle.min.js"></script>
-	<script>
-function downloadReg(arg){
-  var jsonData = {};
-  
-  var xmlString = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>n<gpx version="1.0" creator="GPSLogger" xmlns="http://www.topografix.com/GPX/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">n<trk>';
-  xmlString +='<name>' + arg + '</name><trkseg>';
-  var page = 0;
-  do{
-  $.ajax({url: '/downloadcsv?c=20&p='+ page +'&n=' + arg, type: 'GET',	async: false,success: function(response) {jsonData = response;
-  
-    for( var i = 0; i < jsonData.lines; i++ ){
-		var obj = jsonData.regs[i];
-		xmlString +="<trkpt lat=\"" + obj.lat;
-		xmlString +="\" lon=\"" + obj.long+ "\">";
-		xmlString +="<ele>" + obj.elev + "</ele>";
-		xmlString +="<time>" + obj.time + "</time>";
-		xmlString +="<speed>" + obj.speed + "</speed></trkpt>";
-		}
-    }
-	});
-  page++;
-  }while(jsonData.lines==20);
-  xmlString += '</trkseg></trk></gpx>';
-  var data = "text/xml;charset=utf-8," + encodeURIComponent(xmlString);
-  $('<a href="data:' + data + '" download="data.xml">Download XML file</a>').appendTo('body').trigger("click");
+    <div class='spinner-cont' id='Spinner'>
+        <div class='spinner-border' role='status'>
+            <span class='visually-hidden'></span>
+        </div>
+        <div id="spinnInner" style="display:none;" class="spinnerInner">00<span style="font-size:14px;">%</span></div>
+    </div>
+    <script src="jquery-3.js" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="jquery-3.js"><\/script>')</script>
+    <script src="bootstrap.bundle.min.js"></script>
+    <script>
+        function initSpinner(htmlSP) {
+            console.log(this);
+            window.rtime;
+            window.timeout = false;
+            window.delta = 50;
 
-}
-$(document).ready(function() {
-  $.ajax({
-    url: '/regs',
-    type: 'GET',
-    success: function(response) {
-      var registers = response.registers;
-      var html = "<ul>";
-      for (var i = 0; i < registers.length; i++) {
-        html += "<li style='cursor:pointer;' onclick='downloadReg(\""+registers[i]+"\")' >" + registers[i] +"</li>";
-      }
-      html += "</ul>";
-      $('#regs').html(html);
-    }
-  });
-});
+            /* responsive */
+            function resizeend() {
+                if (new Date() - window.rtime < window.delta) {
+                    setTimeout(resizeend, window.delta);
+                } else {
+                    window.timeout = false;
+                    SetSpinnerSize();
+                    console.log("tam");
+                }
+            }
 
-	</script>
-    </body>
+            $(window).resize(function () {
+                window.rtime = new Date();
+                if (window.timeout === false) {
+                    window.timeout = true;
+                    setTimeout(resizeend, window.delta);
+                }
+            });
+            var heigth = $(window).height();
+            var width = $(window).width();
+
+            $("#Spinner").css({
+                "width": width + "px",
+                "height": heigth + "px",
+            });
+        }
+        function showSp() {
+            $("#Spinner").css('display', 'block');
+        }
+
+        function downloadReg(arg, size, index) {
+            var jsonData = {};
+            showSp();
+            console.log(arg);
+            var position = 0;
+            var cperc = 0;
+            //$("#spinnInner").css('display', 'block');
+            document.getElementById("spinnInner").style.display = "block";
+            setTimeout(function () {
+                var xmlString = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><gpx version="1.0" creator="GPSLogger" xmlns="http://www.topografix.com/GPX/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><trk>';
+                xmlString += '<name>' + arg + '</name><trkseg>';
+                var page = 0;
+               
+                do {
+                    $.ajax({
+                        url: 'http://192.168.4.1/downloadcsv?c=20&p=' + page + '&s=' + position + '&n=' + arg, type: 'GET', async: false, success: function (response) {
+                            jsonData = response;
+                            document.getElementById("spinnInner").style.display = "block";
+                            for (var i = 0; i < jsonData.lines; i++) {
+                                var obj = jsonData.regs[i];
+                                xmlString += "<trkpt lat=\"" + obj.lat;
+                                xmlString += "\" lon=\"" + obj.long + "\">";
+                                xmlString += "<ele>" + obj.elev + "</ele>";
+                                xmlString += "<time>" + obj.time + "</time>";
+                                xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
+                            }
+                        }
+                    });
+                    page++;
+                    position = jsonData.position;
+                    cperc = (position / size) * 100;
+                    console.log(cperc);
+                    document.getElementById("spinnInner").text = cperc;
+                    //$("#spinnInner").html(cperc);
+
+                } while (jsonData.lines == 20);
+                xmlString += '</trkseg></trk></gpx>';
+                var data = "text/xml;charset=utf-8," + encodeURIComponent(xmlString);
+                $('#btncont_' + index).empty();
+                $('<a id="download_' + index + '" href="data:' + data + '" download="' + arg.name + '.gpx">Download GPX file</a>').appendTo($('#btncont_' + index));
+                $("#Spinner").fadeOut();
+            }, 50);
+           
+        }
+        $(document).ready(function () {
+            $.ajax({
+                url: 'http://192.168.4.1/regs',
+                type: 'GET',
+                success: function (response) {
+                    var registers = response.registers;
+                    var html = "<ul>";
+                    for (var i = 0; i < registers.length; i++) {
+                        html += "<li id='file_" + i + "'>" + registers[i].name + "<span class='smalltxt'>" + registers[i].size + "</span> <span style='cursor:pointer;' onclick='downloadReg(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Convert </span><div style='display: inline;' id='btncont_" + i + "'></div></li>";
+                    }
+                    html += "</ul>";
+                    $('#regs').html(html);
+                    $("#Spinner").fadeOut();
+                }
+            });
+        });
+        //spinner//
+        $(document).ready(function () {
+            initSpinner($("#Spinner").html());
+        });
+
+    </script>
+</body>
 </html>
