@@ -506,7 +506,7 @@ void getDirectory(File dir, String *json) {
     *json += "{\"name\":\"";
     *json += entry.name();
     *json += "\"";
-     *json += ",\"size\":";
+    *json += ",\"size\":";
     *json += entry.size();
     *json += "}";
 
@@ -569,7 +569,6 @@ void getRegisters_handler(AsyncWebServerRequest * request) {
 void readFile_handler(AsyncWebServerRequest * request) {
 
   String filename = "";
-  int page = 0;
   int count = 0;
   uint32_t pos = 0;
   int params = request->params();
@@ -578,9 +577,6 @@ void readFile_handler(AsyncWebServerRequest * request) {
     AsyncWebParameter* p = request->getParam(i);
     if ((p->name()) == "n") {
       filename = (p->value());
-    }
-    if ((p->name()) == "p") {
-      page = (p->value()).toInt();
     }
     if ((p->name()) == "c") {
       count = (p->value()).toInt();
@@ -603,7 +599,7 @@ void readFile_handler(AsyncWebServerRequest * request) {
     fi.readStringUntil('\r');
     fi.readStringUntil('\n');
 
-    if (page > 0) {
+    if (pos > 0) {
       fi.seek(pos);
       //      while (fi.available() && lineCount < (page * count) ) {
       //        fi.readStringUntil('\n');

@@ -85,7 +85,7 @@
 
         .spinnerInner {
             position: absolute;
-            width: 42px;
+            width: 47px;
             height: 65px;
             left: 0;
             bottom: 0;
@@ -94,6 +94,7 @@
             margin: auto;
             font-size: 40px;
             color: #000000c2;
+            text-align: left;
         }
     </style>
 </head>
@@ -114,14 +115,13 @@
         <div class='spinner-border' role='status'>
             <span class='visually-hidden'></span>
         </div>
-        <div id="spinnInner" style="display:none;" class="spinnerInner">00<span style="font-size:14px;">%</span></div>
+        <div id="spinnInner" style="display:none;" class="spinnerInner"><span id="spinnInnerTxt">00</span><span style="font-size:14px;">%</span></div>
     </div>
     <script src="jquery-3.js" crossorigin="anonymous"></script>
     <script>window.jQuery || document.write('<script src="jquery-3.js"><\/script>')</script>
     <script src="bootstrap.bundle.min.js"></script>
     <script>
         function initSpinner(htmlSP) {
-            console.log(this);
             window.rtime;
             window.timeout = false;
             window.delta = 50;
@@ -133,7 +133,6 @@
                 } else {
                     window.timeout = false;
                     SetSpinnerSize();
-                    console.log("tam");
                 }
             }
 
@@ -155,51 +154,69 @@
         function showSp() {
             $("#Spinner").css('display', 'block');
         }
-
-        function downloadReg(arg, size, index) {
-            var jsonData = {};
-            showSp();
-            console.log(arg);
-            var position = 0;
-            var cperc = 0;
-            //$("#spinnInner").css('display', 'block');
-            document.getElementById("spinnInner").style.display = "block";
-            setTimeout(function () {
-                var xmlString = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><gpx version="1.0" creator="GPSLogger" xmlns="http://www.topografix.com/GPX/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><trk>';
-                xmlString += '<name>' + arg + '</name><trkseg>';
-                var page = 0;
-               
-                do {
-                    $.ajax({
-                        url: 'http://192.168.4.1/downloadcsv?c=20&p=' + page + '&s=' + position + '&n=' + arg, type: 'GET', async: false, success: function (response) {
-                            jsonData = response;
-                            document.getElementById("spinnInner").style.display = "block";
-                            for (var i = 0; i < jsonData.lines; i++) {
-                                var obj = jsonData.regs[i];
-                                xmlString += "<trkpt lat=\"" + obj.lat;
-                                xmlString += "\" lon=\"" + obj.long + "\">";
-                                xmlString += "<ele>" + obj.elev + "</ele>";
-                                xmlString += "<time>" + obj.time + "</time>";
-                                xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
-                            }
-                        }
-                    });
-                    page++;
+        var xmlString = '';
+        var jsonData = { position: 0 };
+        var posting = false;
+        var position = 0;
+        var cperc = 0;
+        function doGet(name, position) {
+            $.ajax({
+                url: 'http://192.168.4.1/downloadcsv?c=20&s=' + position + '&n=' + name, type: 'GET', success: function (response) {
+                    jsonData = response;
+                    posting = true;
                     position = jsonData.position;
-                    cperc = (position / size) * 100;
-                    console.log(cperc);
                     document.getElementById("spinnInner").text = cperc;
-                    //$("#spinnInner").html(cperc);
-
-                } while (jsonData.lines == 20);
-                xmlString += '</trkseg></trk></gpx>';
-                var data = "text/xml;charset=utf-8," + encodeURIComponent(xmlString);
-                $('#btncont_' + index).empty();
-                $('<a id="download_' + index + '" href="data:' + data + '" download="' + arg.name + '.gpx">Download GPX file</a>').appendTo($('#btncont_' + index));
-                $("#Spinner").fadeOut();
-            }, 50);
-           
+                    document.getElementById("spinnInner").style.display = "block";
+                    for (var i = 0; i < jsonData.lines; i++) {
+                        var obj = jsonData.regs[i];
+                        xmlString += "<trkpt lat=\"" + obj.lat;
+                        xmlString += "\" lon=\"" + obj.long + "\">";
+                        xmlString += "<ele>" + obj.elev + "</ele>";
+                        xmlString += "<time>" + obj.time + "</time>";
+                        xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
+                    }
+                    posting = false;
+                }
+            });
         }
+        var interval = null;
+        function downloadReg(arg, size, index) {
+
+            showSp();
+            $("#spinnInner").css('display', 'block');
+            xmlString = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><gpx version="1.0" creator="GPSLogger" xmlns="http://www.topografix.com/GPX/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><trk>';
+            xmlString += '<name>' + arg + '</name><trkseg>';
+
+            interval = setInterval(function () {
+
+                if (!posting) {
+                    if (position < size) {
+                        doGet(arg, jsonData.position);
+                        cperc = (jsonData.position / size) * 100;
+                        $("#spinnInnerTxt").text(parseFloat(cperc).toFixed(0).toString().padStart(2, '0'));
+                    }
+
+
+                    if (jsonData.position == size) {
+
+                        xmlString += '</trkseg></trk></gpx>';
+                        var data = "text/xml;charset=utf-8," + encodeURIComponent(xmlString);
+                        $('#btncont_' + index).empty();
+                        $('<a id="download_' + index + '" href="data:' + data + '" download="' + arg + '.gpx">Download GPX file</a>').appendTo($('#btncont_' + index));
+                        $("#Spinner").fadeOut();
+                        $("#spinnInner").css('display', 'none');
+                        clearInterval(interval);
+                        xmlString = '';
+                        jsonData = { position: 0 };
+                        posting = false;
+                        position = 0;
+                        cperc = 0;
+                    }
+                }
+            }, 100);
+
+        }
+       
         $(document).ready(function () {
             $.ajax({
                 url: 'http://192.168.4.1/regs',
@@ -208,7 +225,7 @@
                     var registers = response.registers;
                     var html = "<ul>";
                     for (var i = 0; i < registers.length; i++) {
-                        html += "<li id='file_" + i + "'>" + registers[i].name + "<span class='smalltxt'>" + registers[i].size + "</span> <span style='cursor:pointer;' onclick='downloadReg(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Convert </span><div style='display: inline;' id='btncont_" + i + "'></div></li>";
+                        html += "<li id='file_" + i + "'>" + registers[i].name + " <span style='cursor:pointer;' onclick='downloadReg(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Convert </span><div style='display: inline;' id='btncont_" + i + "'></div></li>";
                     }
                     html += "</ul>";
                     $('#regs').html(html);
