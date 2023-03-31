@@ -619,7 +619,7 @@ void readFile_handler(AsyncWebServerRequest * request) {
       v = fi.readStringUntil(',');
       response->printf(",\"long\":\"%s\"", v);
       v = fi.readStringUntil(',');
-      response->printf(",\"elev\":\"%s\"", v);
+      response->printf(",\"elev\":%s", v);
       v = fi.readStringUntil(',');
       response->print(",\"time\":\"" + v + "\"" );
       v =  fi.readStringUntil(',');

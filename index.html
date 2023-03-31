@@ -43,7 +43,6 @@
                     font-weight: normal;
                     color: #0066cc;
                     display: inline-block;
-                    position: absolute;
                     right: 15px;
                     top: 15px;
                 }
@@ -159,27 +158,15 @@
         var posting = false;
         var position = 0;
         var cperc = 0;
-        function doGet(name, position) {
+        function doGet(name, position, callback) {
             $.ajax({
                 url: 'http://192.168.4.1/downloadcsv?c=20&s=' + position + '&n=' + name, type: 'GET', success: function (response) {
-                    jsonData = response;
-                    posting = true;
-                    position = jsonData.position;
-                    document.getElementById("spinnInner").text = cperc;
-                    document.getElementById("spinnInner").style.display = "block";
-                    for (var i = 0; i < jsonData.lines; i++) {
-                        var obj = jsonData.regs[i];
-                        xmlString += "<trkpt lat=\"" + obj.lat;
-                        xmlString += "\" lon=\"" + obj.long + "\">";
-                        xmlString += "<ele>" + obj.elev + "</ele>";
-                        xmlString += "<time>" + obj.time + "</time>";
-                        xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
-                    }
-                    posting = false;
+                    callback(response);
                 }
             });
         }
         var interval = null;
+
         function downloadReg(arg, size, index) {
 
             showSp();
@@ -190,12 +177,24 @@
             interval = setInterval(function () {
 
                 if (!posting) {
-                    if (position < size) {
-                        doGet(arg, jsonData.position);
+                    if (jsonData.position < size) {
+                        doGet(arg, jsonData.position, (function (response) {
+                            jsonData = response;
+                            posting = true;
+                            //position = jsonData.position;
+                            for (var i = 0; i < jsonData.lines; i++) {
+                                var obj = jsonData.regs[i];
+                                xmlString += "<trkpt lat=\"" + obj.lat;
+                                xmlString += "\" lon=\"" + obj.long + "\">";
+                                xmlString += "<ele>" + obj.elev + "</ele>";
+                                xmlString += "<time>" + obj.time + "</time>";
+                                xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
+                            }
+                            posting = false;
+                        }));
                         cperc = (jsonData.position / size) * 100;
                         $("#spinnInnerTxt").text(parseFloat(cperc).toFixed(0).toString().padStart(2, '0'));
                     }
-
 
                     if (jsonData.position == size) {
 
@@ -216,7 +215,54 @@
             }, 100);
 
         }
-       
+        var objStat = {};
+        function downloadStats(arg, size, index) {
+            showSp();
+            objStat = { tempCount: 0, tempMx: -100, tempMn: 100, temp: 0, elevPos: 0, elevNeg: 0 };
+            $("#spinnInner").css('display', 'block');
+            interval = setInterval(function () {
+
+                if (!posting) {
+                    if (jsonData.position < size) {
+                        doGet(arg, jsonData.position, (function (response) {
+                            jsonData = response;
+                            posting = true;
+                            //position = jsonData.position;
+                            for (var i = 0; i < jsonData.lines; i++) {
+                                var obj = jsonData.regs[i];
+                                objStat.temp += obj.temp;
+                                objStat.tempCount++;
+                                console.log(objStat.temp);
+                                objStat.tempMx = obj.temp > objStat.tempMx ? obj.temp : objStat.tempMx;
+                                objStat.tempMn = obj.temp < objStat.tempMn ? obj.temp : objStat.tempMn;
+                                if (i == jsonData.lines - 1) {
+                                    var dif = Number(jsonData.regs[0].elev) - Number(obj.elev);
+                                   
+                                    objStat.elevPos += dif > 0 ? dif : 0;
+                                    objStat.elevNeg += dif < 0 ? dif : 0;
+                                }
+                            }
+                            posting = false;
+                        }));
+                        cperc = (jsonData.position / size) * 100;
+                        $("#spinnInnerTxt").text(parseFloat(cperc).toFixed(0).toString().padStart(2, '0'));
+                    }
+
+                    if (jsonData.position == size) {
+                        clearInterval(interval);
+                        $("#Spinner").fadeOut();
+                        $("#spinnInner").css('display', 'none');
+                        jsonData = { position: 0 };
+                        posting = false;
+                        cperc = 0;
+                        alert('Temp prom: ' + (parseFloat(objStat.temp / objStat.tempCount).toFixed(2)) + '\r\Temp Max: ' + (parseFloat(objStat.tempMx).toFixed(2)) + '\r\Temp Min: ' + (parseFloat(objStat.tempMn).toFixed(2)) + '\r\nElev pos: ' + (parseFloat(objStat.elevPos).toFixed(2)) + '\r\nElev neg: ' + (parseFloat(objStat.elevNeg).toFixed(2)));
+
+                    }
+                }
+            }, 100);
+
+        }
+
         $(document).ready(function () {
             $.ajax({
                 url: 'http://192.168.4.1/regs',
@@ -225,7 +271,7 @@
                     var registers = response.registers;
                     var html = "<ul>";
                     for (var i = 0; i < registers.length; i++) {
-                        html += "<li id='file_" + i + "'>" + registers[i].name + " <span style='cursor:pointer;' onclick='downloadReg(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Convert </span><div style='display: inline;' id='btncont_" + i + "'></div></li>";
+                        html += "<li id='file_" + i + "'>" + registers[i].name + "<div style='top: 20px;'><span style='cursor:pointer;' onclick='downloadStats(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Stats </span> | <span style='cursor:pointer;' onclick='downloadReg(\"" + registers[i].name + "\",\"" + registers[i].size + "\"," + i + ")'>Convert </span></div><div style='display: inline;' id='btncont_" + i + "'></div></li>";
                     }
                     html += "</ul>";
                     $('#regs').html(html);
