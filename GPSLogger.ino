@@ -108,10 +108,10 @@ void getLastFile() {
     char fname[ename.length() + 1] ;
     ename.toCharArray(fname, (ename.length() + 1));
     int num = 0;
-    if (ename.length() > 18) {
-      num = (String(strtok(fname, "-")[13]) +  String(strtok(fname, "-")[14])).toInt();
+    if (ename.length() > 20) {
+      num = (String(strtok(fname, "-")[15]) +  String(strtok(fname, "-")[16])).toInt();
     } else {
-      num = String(strtok(fname, "-")[13] ).toInt();
+      num = String(strtok(fname, "-")[15] ).toInt();
     }
     if (fileNum < num) {
       fileNum = num;
@@ -139,7 +139,7 @@ void registerData()
     int currentYear = gps.date.year();
     if (fileName == "") {
       fileNum = fileNum + 1;
-      fileName =  "route_" + numToTwoDigits(localizeHourTime(gps.time.hour())) + numToTwoDigits(gps.time.minute())  + numToTwoDigits(gps.time.second()) + "-" + String(fileNum) + ".csv";
+      fileName =  "route_" + String( gps.date.year()) + numToTwoDigits(gps.date.month())  + numToTwoDigits(gps.date.day()) + "-" + String(fileNum) + ".csv";
     }
     if (currentYear > 2000) {
       if (!SD.exists("/regs"))
@@ -269,7 +269,7 @@ float mapfloat(float x, float in_min, float in_max, float out_min, float out_max
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
-void batCheck()
+void batCheck(bool details)
 {
   float voltage;
   int analogInPin  = A0;    // Analog input pin
@@ -283,23 +283,25 @@ void batCheck()
   voltage = voltage + calibration;
   bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
   bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
-  //  if (!initilalized) {
-  //    display.clearDisplay();
-  //    display.setTextColor(SH110X_WHITE);
-  //    display.setTextSize(1);
-  //    display.setCursor(1, 1);
-  //    display.print("sensorValue: "  + String(sensorValue));
-  //    display.setCursor(1, 10);
-  //    display.print("voltage real: "  + String(voltage - calibration));
-  //    display.setCursor(1, 30);
-  //    display.print("voltage: "  + String(voltage));
-  //    display.setCursor(1, 40);
-  //    display.print("bat_percentage: "  + String(bat_percentage));
-  //    display.display();
-  //    while (digitalRead(buttonPin) == HIGH) {
-  //      delay(80);
-  //    }
-  //  }
+  if (details) {
+    display.clearDisplay();
+    display.setTextColor(SH110X_WHITE);
+    display.setTextSize(1);
+    display.setCursor(1, 1);
+    display.print("sensorValue: "  + String(sensorValue));
+    display.setCursor(1, 10);
+    display.print("voltage raw: "  + String(voltage - calibration));
+    display.setCursor(1, 20);
+    display.print("voltage calc: "  + String(voltage));
+    display.setCursor(1, 30);
+    display.print("bat_percentage: "  + String(bat_percentage) + "%");
+    display.setCursor(1, 40);
+    display.print("tap to back to main menu");
+    display.display();
+    while (digitalRead(buttonPin) == HIGH) {
+      delay(80);
+    }
+  }
 
 }
 static void smartdelay(unsigned long ms)
@@ -343,7 +345,7 @@ void gpsdata()
       display.clearDisplay();
       //Battery display and check
       if (millis() - timerBat > (60 * 1000)) {
-        batCheck();
+        batCheck(false);
         timerBat = millis();
       }
       display.drawRect(107, 0, 20, 8, 1);
@@ -404,10 +406,10 @@ void gpsdata()
             fileName = "";
             display.fillRect(0, 48, 128, 20, 0);
             display.display();
-            display.setCursor(1, 50);
-            display.print("file: route_" + String(gps.time.hour() + timeZone) +  String(gps.time.minute())  + String(gps.time.second()) + ".csv" ) ;
+            display.setCursor(1, 48);
+            display.print("route_" + String(gps.date.year()) + numToTwoDigits(gps.date.month())  + numToTwoDigits(gps.date.day()) + "-" + String(fileNum + 1) + ".csv") ;
             display.display();
-            smartdelay(1000);
+            smartdelay(2000);
           }
 
           display.fillRect(0, 48, 128, 20, 0);
@@ -426,7 +428,11 @@ void gpsdata()
       }
       if (regEnable) {
         display.setCursor(1, 50);
+        if (lg != 0) {
         display.print("Recording");
+        }else{
+        display.print("Init rec");
+          }
         bool flash = true;
         for (int i = 0; i < 4; i++) {
           display.fillCircle(62, 54, 4, flash ? 1 : 0);
@@ -446,7 +452,7 @@ void gpsdata()
       display.display();
     }
     if (regEnable) {
-
+   
       altPos = (gps.altitude.meters() - (altStart  + altPos) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
       altNeg = (gps.altitude.meters() - (altStart + altNeg)  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
 
@@ -527,45 +533,6 @@ void getRegisters_handler(AsyncWebServerRequest * request) {
   response->addHeader("Access-Control-Allow-Origin", "*");
   request->send(response);
 }
-//void convertRegister_handler(AsyncWebServerRequest * request) {
-//
-//  AsyncWebParameter* p = request->getParam(0);
-//
-//  AsyncResponseStream *response = request->beginResponseStream("text/xml, application/xml");
-//  response->addHeader("Server", "ESP Async Web Server");
-//
-//  String filename = p->value();
-//  File fi = SD.open("/regs/" + filename);
-//
-//  response->print("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<gpx version=\"1.0\" creator=\"GPSLogger\" xmlns=\"http://www.topografix.com/GPX/1/0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">\n<trk>");
-//  response->print("<name>" + filename + "</name><trkseg>");
-//  if (fi.available()) {
-//    //primero leer encabezado y desestimarlo
-//    fi.readStringUntil('\r');
-//    fi.readStringUntil('\n');
-//
-//    while (fi.available()) {
-//      String v = "";
-//      fi.readStringUntil(',');
-//      //v = fi.readStringUntil(',');
-//      response->print("<trkpt lat=\"" + fi.readStringUntil(','));
-//      //v = fi.readStringUntil(',');
-//      response->print("\" lon=\"" + fi.readStringUntil(',') + "\">");
-//      //v = fi.readStringUntil(',');
-//      response->print("<ele>" + fi.readStringUntil(',') + "</ele>");
-//      //v = fi.readStringUntil(',');
-//      response->print("<time>" + fi.readStringUntil(',') + "</time>");
-//      //v = fi.readStringUntil(',');
-//      response->print("<speed>" + fi.readStringUntil(',') + "</speed></trkpt>");
-//      fi.readStringUntil('\r');
-//      fi.readStringUntil('\n');
-//    }
-//  }
-//  fi.close();
-//
-//  response->print("</trkseg></trk></gpx>");
-//  request->send(response);
-//}
 void readFile_handler(AsyncWebServerRequest * request) {
 
   String filename = "";
@@ -697,11 +664,16 @@ void menuDisplay(int selMode) {
   display.println("-Log trip");
   display.setCursor(10, 22);
   display.println("-Wifi mode");
+  display.setCursor(10, 34);
+  display.println("-bat details");
   if (deviceMode == 1) {
     display.drawRect(5, 8, 120, 12, 1);
   }
   if (deviceMode == 2) {
     display.drawRect(5, 20, 120, 12, 1);
+  }
+  if (deviceMode == 3) {
+    display.drawRect(5, 32, 120, 12, 1);
   }
   display.display();
 }
@@ -710,7 +682,7 @@ void menu() {
   Serial.println(F("btn: ") + String(digitalRead(buttonPin)));
   delay(1000);
   //para que en la primer vuelta lo ponga en 1
-  deviceMode = 2;
+  deviceMode = 3;
   menuDisplay(1);
   bool endMenu = false;
   while (!endMenu) {
@@ -744,8 +716,13 @@ void menu() {
         display.println("Wifi mode");
         display.display();
       }
+      if (deviceMode == 3) {
+        batCheck(true);
+        delay(1000);
+        batCheck(true);
+      }
     } else {
-      deviceMode = deviceMode > 1 ? 1 : deviceMode + 1;
+      deviceMode = deviceMode > 2 ? 1 : deviceMode + 1;
       menuDisplay(deviceMode);
     }
 
@@ -794,7 +771,7 @@ void setup(void) {
   }
   initializingGPS(false);
   delay(1000);
-  batCheck();
+  batCheck(false);
   menu();
 
 }
