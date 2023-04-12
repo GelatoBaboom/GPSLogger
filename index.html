@@ -184,11 +184,21 @@
                             //position = jsonData.position;
                             for (var i = 0; i < jsonData.lines; i++) {
                                 var obj = jsonData.regs[i];
-                                xmlString += "<trkpt lat=\"" + obj.lat;
-                                xmlString += "\" lon=\"" + obj.long + "\">";
-                                xmlString += "<ele>" + obj.elev + "</ele>";
-                                xmlString += "<time>" + obj.time + "</time>";
-                                xmlString += "<speed>" + obj.speed + "</speed></trkpt>";
+								if(obj.chkp=='waypoint'){
+								xmlString += "<wpt lat=\"" + obj.lat;
+									xmlString += "\" lon=\"" + obj.long + "\"><name>Waypoint</name>";
+									xmlString += "<ele>" + obj.elev + "</ele>";
+									xmlString += "<time>" + obj.time + "</time></wpt>";
+								}
+								else
+								{
+									xmlString += "<trkpt lat=\"" + obj.lat;
+									xmlString += "\" lon=\"" + obj.long + "\">";
+									xmlString += "<ele>" + obj.elev + "</ele>";
+									xmlString += "<time>" + obj.time + "</time>";
+									xmlString += "<speed>" + obj.speed + "</speed></trkpt>";	
+                                
+								}
                             }
                             posting = false;
                         }));

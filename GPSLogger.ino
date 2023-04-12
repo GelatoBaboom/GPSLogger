@@ -54,6 +54,7 @@ AsyncWebServer server(80);
 
 File fi;
 bool regEnable = false;
+bool waypointRequest = false;
 bool endRequest = false;
 bool startRequest = false;
 bool displayOn = true;
@@ -161,7 +162,7 @@ void registerData()
         if (gps.altitude.isValid()) {
           fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
           if (fiReg) {
-            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(gps.altitude.meters()) + "," + datetime + ",," + String(currentTemp) + "," + String(gps.speed.kmph()));
+            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(gps.altitude.meters()) + "," + datetime + "," + (waypointRequest ? "waypoint" : "") + "," + String(currentTemp) + "," + String(gps.speed.kmph()));
             fiReg.close();
           }
         }
@@ -392,28 +393,7 @@ void gpsdata()
         altPos = 0;
         altNeg = 0;
         altStart = gps.altitude.meters();
-        //--------------
-        display.setCursor(1, 48);
-        int buttonState = 0;
-        buttonState = digitalRead(buttonPin);
-        if ( fileName != "" && buttonState == LOW) {
-          Serial.println("endRequest: "  + String(endRequest) );
-          display.println("Keep pressing to      create new file");
-          display.display();
-          smartdelay(1000);
-          buttonState = digitalRead(buttonPin);
-          if (buttonState == LOW ) {
-            fileName = "";
-            display.fillRect(0, 48, 128, 20, 0);
-            display.display();
-            display.setCursor(1, 48);
-            display.print("route_" + String(gps.date.year()) + numToTwoDigits(gps.date.month())  + numToTwoDigits(gps.date.day()) + "-" + String(fileNum + 1) + ".csv") ;
-            display.display();
-            smartdelay(2000);
-          }
 
-          display.fillRect(0, 48, 128, 20, 0);
-        }
       } else {
         if (endRequest) {
           regEnable = false;
@@ -429,10 +409,10 @@ void gpsdata()
       if (regEnable) {
         display.setCursor(1, 50);
         if (lg != 0) {
-        display.print("Recording");
-        }else{
-        display.print("Init rec");
-          }
+          display.print("Recording");
+        } else {
+          display.print("Init rec");
+        }
         bool flash = true;
         for (int i = 0; i < 4; i++) {
           display.fillCircle(62, 54, 4, flash ? 1 : 0);
@@ -452,24 +432,31 @@ void gpsdata()
       display.display();
     }
     if (regEnable) {
-   
+
       altPos = (gps.altitude.meters() - (altStart  + altPos) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
       altNeg = (gps.altitude.meters() - (altStart + altNeg)  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
 
       double pdist = 0;
-      if (lg != 0) {
-        pdist = calculateDistance(lt, lg , gps.location.lat(), gps.location.lng());
-        if (pdist > ACCURACY) {
-          dist += pdist;
+      if (waypointRequest) {
+        lg = gps.location.lng();
+        lt = gps.location.lat();
+        registerData();
+        waypointRequest = false;
+      } else {
+        if (lg != 0) {
+          pdist = calculateDistance(lt, lg , gps.location.lat(), gps.location.lng());
+          if (pdist > ACCURACY) {
+            dist += pdist;
+            lg = gps.location.lng();
+            lt = gps.location.lat();
+            registerData();
+          }
+          Serial.println(String(dist));
+        } else {
           lg = gps.location.lng();
           lt = gps.location.lat();
           registerData();
         }
-        Serial.println(String(dist));
-      } else {
-        lg = gps.location.lng();
-        lt = gps.location.lat();
-        registerData();
       }
     }
   }
@@ -794,8 +781,46 @@ void manageLogger() {
       displayOn = true;
     } else {
       if (sdOn) {
-        endRequest = regEnable ? true : false;
+
+        waypointRequest = regEnable ? true : false;
         startRequest = regEnable ? false : true;
+        //--------------
+        display.setCursor(1, 48);
+        if (waypointRequest) {
+          display.fillRect(0, 48, 128, 20, 0);
+          display.display();
+          display.println("Release to create     a waypoint");
+          display.display();
+          smartdelay(1000);
+          if ( digitalRead(buttonPin) == LOW) {
+            endRequest = regEnable ? true : false;
+            waypointRequest = false ;
+            display.fillRect(0, 48, 128, 20, 0);
+            display.display();
+            display.setCursor(1, 48);
+            display.println("Ending request");
+            display.display();
+            smartdelay(500);
+          }
+        }
+        if (startRequest) {
+          if ( fileName != "" && digitalRead(buttonPin) == LOW) {
+            display.println("Keep pressing to      create new file");
+            display.display();
+            smartdelay(1000);
+            if (digitalRead(buttonPin) == LOW ) {
+              fileName = "";
+              display.fillRect(0, 48, 128, 20, 0);
+              display.display();
+              display.setCursor(1, 48);
+              display.print("route_" + String(gps.date.year()) + numToTwoDigits(gps.date.month())  + numToTwoDigits(gps.date.day()) + "-" + String(fileNum + 1) + ".csv") ;
+              display.display();
+              smartdelay(2000);
+            }
+
+            display.fillRect(0, 48, 128, 20, 0);
+          }
+        }
       }
     }
   }
