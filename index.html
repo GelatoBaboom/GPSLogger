@@ -156,8 +156,8 @@
         var xmlString = '';
         var jsonData = { position: 0 };
         var posting = false;
-        var position = 0;
         var cperc = 0;
+       
         function doGet(name, position, callback) {
             $.ajax({
                 url: 'http://192.168.4.1/downloadcsv?c=20&s=' + position + '&n=' + name, type: 'GET', success: function (response) {
@@ -242,7 +242,6 @@
                                 var obj = jsonData.regs[i];
                                 objStat.temp += obj.temp;
                                 objStat.tempCount++;
-                                console.log(objStat.temp);
                                 objStat.tempMx = obj.temp > objStat.tempMx ? obj.temp : objStat.tempMx;
                                 objStat.tempMn = obj.temp < objStat.tempMn ? obj.temp : objStat.tempMn;
                                 if (i == jsonData.lines - 1) {

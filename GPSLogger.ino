@@ -284,6 +284,15 @@ void batCheck(bool details)
   voltage = voltage + calibration;
   bat_percentage = mapfloat(voltage, 3, 4.2, 0, 100); //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
   bat_percentage = (bat_percentage >= 100) ? 100 : ((bat_percentage <= 0) ? 1 : bat_percentage);
+  if (bat_percentage < 4) {
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setFont(NULL);
+    display.setCursor(13, 22);
+    display.println("Low bat");
+    display.display();
+    ESP.deepSleep(3 * (3600 * 1000000));
+  }
   if (details) {
     display.clearDisplay();
     display.setTextColor(SH110X_WHITE);
@@ -735,7 +744,7 @@ void setup(void) {
   Serial.println("Starting...");
 
   pinMode(buttonPin, INPUT);
-
+  batCheck(false);
   if (!SD.begin(CS_PIN)) {
     Serial.println("initialization failed!");
     display.clearDisplay();
