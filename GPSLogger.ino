@@ -86,15 +86,18 @@ int currentTemp = 0;
 int deviceMode = 1;
 float getTemperature() {
   float temp;
-
+  int tries = 5;
+  bool done = false;
   do {
     //Serial.println(F("get temp"));
     DS18B20.requestTemperatures();
     temp = DS18B20.getTempCByIndex(0);
     //Serial.println(String((temp)));
     //Serial.println(String((int)trunc(round(temp))));
-    delay(100);
-  } while (temp == 85.0 || temp == (-127.0));
+    if (temp == 85.0 || temp == (-127.0))    {
+      delay(100);tries--;
+    } else{done = true;}
+    } while (tries > 0 && !done) ;
 
   return temp;
 }
