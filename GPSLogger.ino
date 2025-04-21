@@ -136,6 +136,7 @@ int localizeHourTime(int hours) {
   hours = hours > 23 ? hours - 24 : hours;
   return hours;
 }
+
 void registerData()
 {
   if (regEnable) {
