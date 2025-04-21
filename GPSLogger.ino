@@ -68,6 +68,7 @@ double dist = 0;
 double altPos = 0;
 double altNeg = 0;
 double altStart = 0;
+double altReg = 0;
 int bat_percentage = 0;
 
 char temperatureString[6];
@@ -95,9 +96,11 @@ float getTemperature() {
     //Serial.println(String((temp)));
     //Serial.println(String((int)trunc(round(temp))));
     if (temp == 85.0 || temp == (-127.0))    {
-      delay(100);tries--;
-    } else{done = true;}
-    } while (tries > 0 && !done) ;
+      delay(100); tries--;
+    } else {
+      done = true;
+    }
+  } while (tries > 0 && !done) ;
 
   return temp;
 }
@@ -156,16 +159,18 @@ void registerData()
         fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
         if (fiReg) {
           if (gps.altitude.isValid()) {
+            altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
             fiReg.println(  "type,latitude,longitude,altitude (m),time,name,desc,speed (km/h)" );
-            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(gps.altitude.meters())  + "," + datetime + ",start," + String(currentTemp) + "," + String(gps.speed.kmph()) );
+            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(altReg)  + "," + datetime + ",start," + String(currentTemp) + "," + String(gps.speed.kmph()) );
             fiReg.close();
           }
         }
       } else {
         if (gps.altitude.isValid()) {
+          altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
           fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
           if (fiReg) {
-            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(gps.altitude.meters()) + "," + datetime + "," + (waypointRequest ? "waypoint" : "") + "," + String(currentTemp) + "," + String(gps.speed.kmph()));
+            fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(altReg) + "," + datetime + "," + (waypointRequest ? "waypoint" : "") + "," + String(currentTemp) + "," + String(gps.speed.kmph()));
             fiReg.close();
           }
         }
