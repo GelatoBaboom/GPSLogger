@@ -8,6 +8,7 @@
 #include <DallasTemperature.h>
 #include <Adafruit_GFX.h>
 #include "FreeSerifBoldItalic18pt7b.h"
+#include "SavitzkyGolayFilter.h"
 #include <Adafruit_SH110X.h>
 #include <TinyGPSPlus.h>
 #include <math.h>
@@ -23,6 +24,7 @@
 #include "index.h"
 #include "jsgzip.h"
 
+SavitzkyGolayFilter filtroAltura;
 TinyGPSPlus gps;
 int ACCURACY = 15;
 int ALTACCURACY = 20;
@@ -160,7 +162,8 @@ void registerData()
         fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
         if (fiReg) {
           if (gps.altitude.isValid()) {
-            altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
+            //altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
+            altReg = filtroAltura.update(gps.altitude.meters());
             fiReg.println(  "type,latitude,longitude,altitude (m),time,name,desc,speed (km/h)" );
             fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(altReg)  + "," + datetime + ",start," + String(currentTemp) + "," + String(gps.speed.kmph()) );
             fiReg.close();
@@ -168,7 +171,8 @@ void registerData()
         }
       } else {
         if (gps.altitude.isValid()) {
-          altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
+          //altReg = abs(gps.altitude.meters() - altReg) > ALTACCURACY ? gps.altitude.meters() : altReg ;
+          altReg = filtroAltura.update(gps.altitude.meters());
           fiReg = SD.open("/regs/" + fileName, FILE_WRITE);
           if (fiReg) {
             fiReg.println( "T," + String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6) + "," + String(altReg) + "," + datetime + "," + (waypointRequest ? "waypoint" : "") + "," + String(currentTemp) + "," + String(gps.speed.kmph()));
@@ -451,8 +455,10 @@ void gpsdata()
     }
     if (regEnable) {
 
-      altPos = (gps.altitude.meters() - (altStart  + altPos) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
-      altNeg = (gps.altitude.meters() - (altStart + altNeg)  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
+      //altPos = (filtroAltura.update(gps.altitude.meters()) - (altStart  + altPos) > altPos) ? (filtroAltura.update(gps.altitude.meters()) - altStart) : altPos;//(gps.altitude.meters() - (altStart  + altPos) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
+      altPos = ((filtroAltura.update(gps.altitude.meters())- (altStart  + altPos)) > ALTACCURACY) ? (gps.altitude.meters() - altStart) : altPos;
+      //altNeg = (filtroAltura.update(gps.altitude.meters()) - (altStart  + altNeg) > altNeg) ? (filtroAltura.update(gps.altitude.meters()) - altStart) : altNeg;// (gps.altitude.meters() - (altStart + altNeg)  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
+      altNeg = ((filtroAltura.update(gps.altitude.meters()) - (altStart + altNeg))  < -(ALTACCURACY)) ? (gps.altitude.meters() - altStart) : altNeg;
 
       double pdist = 0;
       if (waypointRequest) {
